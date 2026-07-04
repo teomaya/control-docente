@@ -1,22 +1,16 @@
-# React + Vite
+# Sistema de Control Docente - Grupo 3A
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Plataforma web diseñada para optimizar el registro y pase de lista diario de los alumnos. 
 
-Currently, two official plugins are available:
+## Características Principales
+* ✔️ Interfaz rápida y fácil de usar.
+* ✔️ Integración de la lista oficial con los 20 nombres de los alumnos del grupo listos para el registro.
+* ✔️ Despliegue continuo y automático activado.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Tecnologías Utilizadas
+* React
+* Vite
+* Alojado en Netlify con control de versiones en GitHub.
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
-
-      
-
-
-
-      
+---
+*Desarrollado por el Profe. Aristeo.*
