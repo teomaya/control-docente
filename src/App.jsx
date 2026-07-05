@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { 
   Calendar, UserCheck, UserX, Home, School, BookOpen, Save, CheckCircle2, 
-  Printer, Search, BookOpenCheck, AlertCircle, Plus, Trash2, X, FileText, Award, User
+  Printer, Search, BookOpenCheck, AlertCircle, Plus, Trash2, X, FileText, Award, User,
+  Lock // <-- Importamos el ícono del candado
 } from 'lucide-react';
 
 // Base de datos oficial corregida: 24 alumnos (respetando los números de lista)
@@ -33,6 +34,11 @@ const alumnosIniciales = [
 ];
 
 export default function App() {
+  // --- NUEVO ESTADO PARA EL BLOQUEO (CONTRASEÑA) ---
+  const [estaAutenticado, setEstaAutenticado] = useState(false);
+  const [contrasena, setContrasena] = useState('');
+
+  // --- ESTADOS ORIGINALES DEL SISTEMA ---
   const [alumnos, setAlumnos] = useState(alumnosIniciales);
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
   const [busqueda, setBusqueda] = useState('');
@@ -45,6 +51,21 @@ export default function App() {
   const [incidenteNuevo, setIncidenteNuevo] = useState({ categoria: 'Conducta', detalle: '' });
   const [idAlumnoIncidente, setIdAlumnoIncidente] = useState(null);
 
+  // --- LÓGICA DE VALIDACIÓN DE CONTRASEÑA ---
+  const CONTRASENA_CORRECTA = 'Profe2026'; 
+
+  const manejarIngreso = (e) => {
+    e.preventDefault();
+    if (contrasena === CONTRASENA_CORRECTA) {
+      setEstaAutenticado(true);
+    } else {
+      alert('Contraseña incorrecta. Intenta de nuevo.');
+      setContrasena(''); // Borra la contraseña si se equivocó
+    }
+  };
+
+
+  // --- FUNCIONES ORIGINALES ---
   const alumnosFiltrados = alumnos.filter(alumno => {
     const coincideBusqueda = alumno.nombre.toLowerCase().includes(busqueda.toLowerCase());
     const coincideCanal = filtroCanal === 'Todos' || alumno.canal === filtroCanal;
@@ -69,13 +90,12 @@ export default function App() {
     const urlScript = 'https://script.google.com/macros/s/AKfycbwaILRlvuvI84N9iVF3swItyIoBFn3IpClSGkbrJV7g7RVzRCDmjPbIkFJK3hLSOCog/exec';
 
     try {
-      // Método seguro de formulario URLSearchParams
       const params = new URLSearchParams();
       params.append('data', JSON.stringify({ fecha, alumnos }));
 
       await fetch(urlScript, {
         method: 'POST',
-        mode: 'no-cors', // Evita bloqueos del navegador
+        mode: 'no-cors', 
         body: params     
       });
       console.log("Datos enviados a Sheets exitosamente");
@@ -153,6 +173,45 @@ export default function App() {
   const tareasCumplidas = alumnos.filter(a => a.asistencia && a.tarea).length;
   const trabajandoCasa = alumnos.filter(a => a.asistencia && a.lugar === 'casa').length;
 
+
+  // =======================================================================
+  // PANTALLA DE BLOQUEO (SE MUESTRA SI NO ESTÁ AUTENTICADO)
+  // =======================================================================
+  if (!estaAutenticado) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans w-full">
+        <div className="bg-white p-8 md:p-10 rounded-2xl shadow-xl max-w-md w-full text-center border border-slate-100">
+          <div className="bg-emerald-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 text-emerald-700 shadow-sm">
+            <Lock className="w-10 h-10" />
+          </div>
+          
+          <h2 className="text-2xl font-extrabold text-slate-800 mb-2 tracking-tight">Acceso Restringido</h2>
+          <p className="text-slate-500 text-sm mb-8 font-medium">Control Docente 3ro "A". Por favor, ingresa tu clave de maestro para continuar.</p>
+          
+          <form onSubmit={manejarIngreso} className="space-y-5">
+            <input
+              type="password"
+              placeholder="•••••••••"
+              value={contrasena}
+              onChange={(e) => setContrasena(e.target.value)}
+              autoFocus
+              className="w-full p-4 border border-slate-200 bg-slate-50 rounded-xl outline-none focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-50 transition-all text-center text-xl tracking-[0.3em] font-bold text-slate-700"
+            />
+            <button 
+              type="submit" 
+              className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-4 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+            >
+              <UserCheck className="w-5 h-5" /> Desbloquear Sistema
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // =======================================================================
+  // APLICACIÓN PRINCIPAL (SE MUESTRA SI LA CONTRASEÑA FUE CORRECTA)
+  // =======================================================================
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-24 print:bg-white print:p-0 print:pb-0 w-full">
       
