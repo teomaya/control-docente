@@ -234,7 +234,7 @@ export default function App() {
               <span className="p-1.5 bg-emerald-100 text-emerald-800 rounded-lg">
                 <Award className="w-5 h-5" />
               </span>
-              <h1 className="text-xl font-bold text-slate-800">Control Docente 3ro "A"</h1>
+              <h1 className="text-xl font-bold text-slate-800">Control Docente 3ro "A" Profr. Aristeo Maya Corona </h1>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">Optimiza tu tiempo administrativo y enfócate en educar</p>
           </div>
