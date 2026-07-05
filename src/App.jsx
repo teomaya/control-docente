@@ -739,11 +739,11 @@ export default function App() {
             <footer className="mt-16 pt-8 border-t border-slate-200 flex justify-between items-center text-xs text-slate-400 font-semibold">
               <div className="text-center w-48">
                 <div className="border-t border-slate-500 pt-1 w-full text-slate-600 uppercase font-bold">Firma Docente</div>
-                <p className="text-[10px]">Titular del Tercer Grado</p>
+                <p className="text-[10px]">profr. Aristeo Maya Corona</p>
               </div>
               <div className="text-center w-48">
                 <div className="border-t border-slate-500 pt-1 w-full text-slate-600 uppercase font-bold">Vo. Bo. Dirección</div>
-                <p className="text-[10px]">Dirección Escolar</p>
+                <p className="text-[10px]">Profa. Rosa María Reynoso Gómez</p>
               </div>
             </footer>
           </div>
