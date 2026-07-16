@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Calendar, UserCheck, UserX, Home, School, BookOpen, Save, CheckCircle2, 
-  Printer, Search, BookOpenCheck, AlertCircle, Plus, Trash2, X, FileText, Award, User, Lock 
+  Printer, Search, BookOpenCheck, AlertCircle, Plus, Trash2, X, FileText, Award, User,
+  Lock, ShieldAlert
 } from 'lucide-react';
 
 const alumnosIniciales = [
@@ -31,302 +32,711 @@ const alumnosIniciales = [
 ];
 
 export default function App() {
-  const [auth, setAuth] = useState({ auth: false, error: '', pass: '' });
-  const [state, setState] = useState({
-    alumnos: alumnosIniciales, fecha: new Date().toISOString().split('T')[0],
-    busqueda: '', filtro: 'Todos', vista: 'registro', guardado: false,
-    alSel: null, idInc: null, nuevoInc: { categoria: 'Conducta', detalle: '' }
+  // Autenticación
+  const [estaAutenticado, setEstaAutenticado] = useState(false);
+  const [contrasena, setContrasena] = useState('');
+  const [errorLogin, setErrorLogin] = useState('');
+
+  // Estados Globales
+  const [alumnos, setAlumnos] = useState(alumnosIniciales);
+  const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+  const [busqueda, setBusqueda] = useState('');
+  const [filtroCanal, setFiltroCanal] = useState('Todos');
+  const [vista, setVista] = useState('registro'); // 'registro', 'reporte', 'formal'
+  const [guardado, setGuardado] = useState(false);
+  
+  // Modales e Incidentes rápidos
+  const [alumnoSeleccionado, setAlumnoSeleccionado] = useState(null);
+  const [incidenteNuevo, setIncidenteNuevo] = useState({ categoria: 'Conducta', detalle: '' });
+  const [idAlumnoIncidente, setIdAlumnoIncidente] = useState(null);
+
+  // Estados para la Bitácora Formal
+  const [formFormal, setFormFormal] = useState({
+    idAlumno: '', lugar: 'Salón de clases', hora: '', testigos: '',
+    faltasSeleccionadas: [], descripcion: '', accion: '', acuerdos: ''
   });
+  const [imprimirFormal, setImprimirFormal] = useState(false);
 
-  const { alumnos, fecha, busqueda, filtro, vista, guardado, alSel, idInc, nuevoInc } = state;
-  const set = (k, v) => setState(p => ({ ...p, [k]: v }));
-
-  // EFECTO MÁGICO: Carga el historial al cambiar la fecha en el calendario
+  // Efecto: Cargar historial local al cambiar la fecha
   useEffect(() => {
-    try {
-      const historial = JSON.parse(localStorage.getItem('historial_3a') || '{}');
-      // Si hay registro de ese día lo carga, si no, carga la lista en limpio clonada
-      set('alumnos', historial[fecha] || JSON.parse(JSON.stringify(alumnosIniciales)));
-    } catch (e) { console.error(e); }
+    const historialGuardado = localStorage.getItem(`historial_3a_${fecha}`);
+    if (historialGuardado) {
+      setAlumnos(JSON.parse(historialGuardado));
+    } else {
+      // Si no hay datos, limpia las asistencias pero respeta perfiles
+      setAlumnos(prev => prev.map(al => ({
+        ...al, asistencia: true, lugar: 'salon', tarea: true, incidentes: []
+      })));
+    }
   }, [fecha]);
 
-  const alumnosFiltrados = alumnos.filter(a => 
-    a.nombre?.toLowerCase().includes(busqueda.toLowerCase()) && (filtro === 'Todos' || a.canal === filtro)
-  );
+  const CONTRASENA_CORRECTA = 'Profe2026'; 
 
   const manejarIngreso = (e) => {
     e.preventDefault();
-    auth.pass === 'Profe2026' ? setAuth({ ...auth, auth: true }) : setAuth({ ...auth, error: 'Contraseña incorrecta', pass: '' });
+    if (contrasena === CONTRASENA_CORRECTA) {
+      setEstaAutenticado(true);
+    } else {
+      setErrorLogin('Contraseña incorrecta. Intenta de nuevo.');
+      setContrasena(''); 
+    }
   };
 
-  const updateAl = (id, fn) => {
-    const arr = alumnos.map(a => a.id === id ? fn(a) : a);
-    set('alumnos', arr);
-    if (alSel?.id === id) set('alSel', arr.find(a => a.id === id));
+  const alumnosFiltrados = alumnos.filter(alumno => {
+    const coincideBusqueda = alumno.nombre.toLowerCase().includes(busqueda.toLowerCase());
+    const coincideCanal = filtroCanal === 'Todos' || alumno.canal === filtroCanal;
+    return coincideBusqueda && coincideCanal;
+  });
+
+  const toggleAsistencia = (id) => {
+    setAlumnos(alumnos.map(al => al.id === id ? { ...al, asistencia: !al.asistencia } : al));
+  };
+  const toggleLugar = (id) => {
+    setAlumnos(alumnos.map(al => al.id === id ? { ...al, lugar: al.lugar === 'salon' ? 'casa' : 'salon' } : al));
+  };
+  const toggleTarea = (id) => {
+    setAlumnos(alumnos.map(al => al.id === id ? { ...al, tarea: !al.tarea } : al));
   };
 
-  const tog = (id, k) => updateAl(id, a => ({ ...a, [k]: k === 'lugar' ? (a.lugar === 'salon' ? 'casa' : 'salon') : !a[k] }));
-
-  const modInc = (id, action, incId = null) => {
-    if (action === 'add' && !nuevoInc.detalle.trim()) return;
-    updateAl(id, a => ({
-      ...a, incidentes: action === 'add' 
-        ? [{ id: Date.now(), fecha, ...nuevoInc }, ...a.incidentes]
-        : a.incidentes.filter(i => i.id !== incId)
-    }));
-    if (action === 'add') { set('nuevoInc', { categoria: 'Conducta', detalle: '' }); set('idInc', null); }
-  };
-
-  // Función Guardar (Conectada a Sheets y ahora guarda Historial Local)
-  const guardarSheets = async () => {
-    set('guardado', true);
+  const handleGuardarEnSheets = async () => {
+    setGuardado(true);
     
-    // 1. Guardar copia en el historial local del navegador
-    try {
-      const historial = JSON.parse(localStorage.getItem('historial_3a') || '{}');
-      historial[fecha] = alumnos;
-      localStorage.setItem('historial_3a', JSON.stringify(historial));
-    } catch (e) { console.error(e); }
+    // 1. Guardar en Historial Local (Navegador)
+    localStorage.setItem(`historial_3a_${fecha}`, JSON.stringify(alumnos));
 
-    // 2. Enviar a Google Sheets
+    // 2. Guardar en Google Sheets
+    const urlScript = 'https://script.google.com/macros/s/AKfycbwaILRlvuvI84N9iVF3swItyIoBFn3IpClSGkbrJV7g7RVzRCDmjPbIkFJK3hLSOCog/exec';
     try {
-      const params = new URLSearchParams({ data: JSON.stringify({ fecha, alumnos }) });
-      await fetch('https://script.google.com/macros/s/AKfycbwaILRlvuvI84N9iVF3swItyIoBFn3IpClSGkbrJV7g7RVzRCDmjPbIkFJK3hLSOCog/exec', 
-        { method: 'POST', mode: 'no-cors', body: params });
-    } catch (e) { console.error(e); }
+      const params = new URLSearchParams();
+      params.append('data', JSON.stringify({ fecha, alumnos }));
+
+      await fetch(urlScript, {
+        method: 'POST',
+        mode: 'no-cors', 
+        body: params     
+      });
+      console.log("Datos enviados a Sheets exitosamente");
+    } catch (error) {
+      console.error("Error al enviar a Sheets:", error);
+    }
     
-    setTimeout(() => set('guardado', false), 2500);
+    setTimeout(() => setGuardado(false), 2500);
   };
 
-  // Estadísticas calculadas
-  const pres = alumnos.filter(a => a.asistencia).length;
-  const stats = [
-    { t: 'Asistencia', v: `${alumnos.length ? Math.round((pres / alumnos.length) * 100) : 0}%`, s: `(${pres}/${alumnos.length})`, I: UserCheck, c: 'text-[#00E676]', bg: 'bg-[#00E676]/10' },
-    { t: 'Inasistencias', v: alumnos.length - pres, s: 'alumnos', I: UserX, c: 'text-rose-400', bg: 'bg-rose-500/10' },
-    { t: 'Trabajo en Casa', v: alumnos.filter(a => a.asistencia && a.lugar === 'casa').length, s: 'hoy', I: Home, c: 'text-[#00E5FF]', bg: 'bg-[#00E5FF]/10' },
-    { t: 'Tareas', v: alumnos.filter(a => a.asistencia && a.tarea).length, s: 'entregadas', I: BookOpen, c: 'text-indigo-400', bg: 'bg-indigo-500/10' }
+  const agregarIncidente = (id) => {
+    if (!incidenteNuevo.detalle.trim()) return;
+    const nuevoObj = {
+      id: Date.now(), fecha: fecha, categoria: incidenteNuevo.categoria, detalle: incidenteNuevo.detalle
+    };
+    setAlumnos(alumnos.map(al => al.id === id ? { ...al, incidentes: [nuevoObj, ...al.incidentes] } : al));
+    setIncidenteNuevo({ categoria: 'Conducta', detalle: '' });
+    setIdAlumnoIncidente(null);
+    if (alumnoSeleccionado && alumnoSeleccionado.id === id) {
+      setAlumnoSeleccionado({ ...alumnoSeleccionado, incidentes: [nuevoObj, ...alumnoSeleccionado.incidentes] });
+    }
+  };
+
+  const eliminarIncidente = (alumnoId, incidenteId) => {
+    setAlumnos(alumnos.map(al => al.id === alumnoId ? { ...al, incidentes: al.incidentes.filter(inc => inc.id !== incidenteId) } : al));
+    if (alumnoSeleccionado && alumnoSeleccionado.id === alumnoId) {
+      setAlumnoSeleccionado({ ...alumnoSeleccionado, incidentes: alumnoSeleccionado.incidentes.filter(inc => inc.id !== incidenteId) });
+    }
+  };
+
+  const guardarPerfilPedagogico = (id, nuevoCanal, nuevoDiag) => {
+    setAlumnos(alumnos.map(al => al.id === id ? { ...al, canal: nuevoCanal, diagnostico: nuevoDiag } : al));
+    if (alumnoSeleccionado && alumnoSeleccionado.id === id) {
+      setAlumnoSeleccionado({ ...alumnoSeleccionado, canal: nuevoCanal, diagnostico: nuevoDiag });
+    }
+  };
+
+  const opcionesFaltasForm = [
+    "Falta de respeto a la autoridad docente",
+    "Falta de respeto a compañeros (burlas, apodos, agresiones verbales)",
+    "Agresión física (empujones, golpes, juegos bruscos)",
+    "Uso de lenguaje inapropiado o groserías",
+    "Interrupción constante del trabajo escolar",
+    "Daño deliberado al mobiliario o material escolar",
+    "Incumplimiento reiterado de tareas o material"
   ];
 
-  if (!auth.auth) return (
-    <>
-      <style>{`body, html, #root { margin: 0; padding: 0; width: 100%; min-height: 100vh; background-color: #0B1221; }`}</style>
-      <div className="min-h-screen bg-[#0B1221] flex items-center justify-center p-4 w-full">
-        <div className="bg-[#151D2E] p-8 rounded-2xl shadow-2xl max-w-md w-full text-center border border-slate-800">
-          <Lock className="w-12 h-12 text-[#00E5FF] mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-1">Registro 3 A</h2>
-          <p className="text-slate-400 text-sm mb-6">Acceso Restringido</p>
-          <form onSubmit={manejarIngreso} className="space-y-4">
-            <input type="password" placeholder="Clave Docente" value={auth.pass} onChange={e => setAuth({...auth, pass: e.target.value})}
-              className="w-full p-4 bg-[#0B1221] text-center text-xl text-white rounded-xl border border-slate-700 outline-none focus:border-[#00E5FF]" autoFocus />
-            {auth.error && <p className="text-rose-400 text-xs">{auth.error}</p>}
-            <button type="submit" className="w-full bg-[#00E5FF] text-[#0B1221] font-bold py-3 rounded-xl hover:bg-[#00cce6] transition">Desbloquear</button>
+  const toggleFaltaFormal = (falta) => {
+    setFormFormal(prev => ({
+      ...prev,
+      faltasSeleccionadas: prev.faltasSeleccionadas.includes(falta)
+        ? prev.faltasSeleccionadas.filter(f => f !== falta)
+        : [...prev.faltasSeleccionadas, falta]
+    }));
+  };
+
+  // Cálculos estadísticos
+  const totalAlumnos = alumnos.length;
+  const presentes = alumnos.filter(a => a.asistencia).length;
+  const faltas = totalAlumnos - presentes;
+  const porcentajeAsistencia = totalAlumnos > 0 ? Math.round((presentes / totalAlumnos) * 100) : 0;
+  const tareasCumplidas = alumnos.filter(a => a.asistencia && a.tarea).length;
+  const trabajandoCasa = alumnos.filter(a => a.asistencia && a.lugar === 'casa').length;
+
+  if (!estaAutenticado) {
+    return (
+      <div className="min-h-screen bg-[#0B1221] flex items-center justify-center p-4 font-sans w-full absolute inset-0">
+        <div className="bg-[#151D2E] p-8 md:p-10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-md w-full text-center border border-slate-800">
+          <div className="bg-[#00E5FF]/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 text-[#00E5FF] shadow-inner">
+            <Lock className="w-10 h-10" />
+          </div>
+          
+          <h2 className="text-2xl font-black text-white mb-2 tracking-tight uppercase">Registro 3 "A"</h2>
+          <p className="text-slate-400 text-sm mb-8 font-medium">Control Docente. Por favor, ingresa tu clave maestra.</p>
+          
+          <form onSubmit={manejarIngreso} className="space-y-5">
+            <input
+              type="password"
+              placeholder="•••••••••"
+              value={contrasena}
+              onChange={(e) => {
+                setContrasena(e.target.value);
+                setErrorLogin('');
+              }}
+              autoFocus
+              className="w-full p-4 border border-slate-700 bg-[#0B1221] rounded-xl outline-none focus:border-[#00E5FF] focus:ring-2 focus:ring-[#00E5FF]/20 transition-all text-center text-xl tracking-[0.3em] font-bold text-white shadow-inner"
+            />
+            {errorLogin && <p className="text-rose-400 text-xs font-bold animate-pulse">{errorLogin}</p>}
+            <button 
+              type="submit" 
+              className="w-full bg-[#00E5FF] hover:bg-[#00b8cc] text-[#0B1221] font-bold py-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
+            >
+              <UserCheck className="w-5 h-5" /> Desbloquear Sistema
+            </button>
           </form>
         </div>
       </div>
-    </>
-  );
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-[#0B1221] text-slate-300 pb-24 print:bg-white print:text-black font-sans w-full selection:bg-[#00E5FF] selection:text-black flex flex-col">
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap'); html, body, #root { font-family: 'Inter', sans-serif; margin: 0; padding: 0; width: 100%; min-height: 100vh; background-color: #0B1221; }`}</style>
+    <div className="min-h-screen bg-[#0B1221] font-sans text-slate-300 pb-24 print:bg-white print:text-black print:p-0 print:pb-0 w-full selection:bg-[#00E5FF] selection:text-black">
+      
+      {/* Estilos Globales e Impresión (Carta, Márgenes) */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap');
+        :root, body, #root {
+          margin: 0;
+          padding: 0;
+          font-family: 'Poppins', sans-serif;
+          background-color: #0B1221;
+          width: 100%;
+          min-height: 100vh;
+        }
+        @media print {
+          @page {
+            size: letter;
+            margin: 1.5cm 2cm;
+          }
+          body {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+            background-color: white !important;
+          }
+          /* Ocultar scrollbars al imprimir */
+          ::-webkit-scrollbar { display: none; }
+        }
+      `}</style>
 
-      <header className="bg-[#151D2E] shadow border-b border-slate-800/80 sticky top-0 z-30 print:hidden p-4 w-full">
-        <div className="w-full px-2 md:px-6 flex flex-wrap justify-between items-center gap-4">
-          <div className="flex items-center gap-3">
-            <Award className="w-8 h-8 text-[#00E5FF] p-1.5 bg-[#00E5FF]/10 rounded-lg" />
-            <div>
-              <h1 className="text-lg font-bold text-white">CONTROL DOCENTE <span className="text-[#00E5FF]">3° "A"</span></h1>
-              <p className="text-xs text-slate-400">Profr. Aristeo Maya Corona</p>
+      {/* Header */}
+      <header className="bg-[#151D2E] shadow-md border-b border-slate-800/80 sticky top-0 z-30 print:hidden w-full">
+        <div className="px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+          <div>
+            <div className="flex items-center gap-3">
+              <span className="p-2 bg-[#00E5FF]/10 text-[#00E5FF] rounded-lg">
+                <Award className="w-6 h-6" />
+              </span>
+              <h1 className="text-xl font-bold text-white tracking-wide">CONTROL DOCENTE <span className="text-[#00E5FF]">3° "A"</span></h1>
             </div>
+            <p className="text-xs text-slate-400 mt-1 ml-11">Profr. Aristeo Maya Corona | Optimiza tu tiempo administrativo</p>
           </div>
-          <div className="flex bg-[#0B1221] p-2 rounded-xl border border-slate-700 items-center">
-            <Calendar className="w-4 h-4 text-[#00E5FF] mx-2" />
-            <input type="date" value={fecha} onChange={e => set('fecha', e.target.value)} className="bg-transparent text-sm text-white font-bold outline-none [color-scheme:dark]" />
+
+          <div className="flex items-center gap-2">
+            <div className="flex items-center bg-[#0B1221] px-4 py-2 rounded-xl border border-slate-700 shadow-inner">
+              <Calendar className="w-4 h-4 text-[#00E5FF] mr-2" />
+              <input 
+                type="date" 
+                value={fecha}
+                onChange={(e) => setFecha(e.target.value)}
+                className="bg-transparent border-none outline-none text-sm text-white font-semibold w-32 [color-scheme:dark]"
+              />
+            </div>
           </div>
         </div>
       </header>
 
-      <div className="w-full px-4 md:px-8 mt-6">
-        <div className="flex gap-2 print:hidden mb-6 max-w-xl">
-          {[{ id: 'registro', i: BookOpenCheck, t: 'Pase de Lista' }, { id: 'reporte', i: Printer, t: 'Vista Impresión' }].map(b => (
-            <button key={b.id} onClick={() => set('vista', b.id)} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition ${vista === b.id ? 'bg-[#00E5FF] text-[#0B1221]' : 'bg-[#151D2E] text-slate-400 border border-slate-700'}`}>
-              <b.i className="w-4 h-4" /> {b.t}
-            </button>
-          ))}
+      {/* Navegación y Pestañas */}
+      <div className="w-full px-4 md:px-8">
+        <div className="mt-6 flex flex-wrap gap-3 print:hidden w-full max-w-3xl">
+          <button
+            onClick={() => { setVista('registro'); setImprimirFormal(false); }}
+            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs md:text-sm font-bold transition-all ${
+              vista === 'registro' 
+              ? 'bg-[#00E5FF] text-[#0B1221] shadow-[0_0_15px_rgba(0,229,255,0.3)]' 
+              : 'bg-[#151D2E] text-slate-400 hover:text-white border border-slate-700'
+            }`}
+          >
+            <BookOpenCheck className="w-4 h-4" /> Pase de Lista Diario
+          </button>
+          
+          <button
+            onClick={() => { setVista('reporte'); setImprimirFormal(false); }}
+            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs md:text-sm font-bold transition-all ${
+              vista === 'reporte' 
+              ? 'bg-[#00E5FF] text-[#0B1221] shadow-[0_0_15px_rgba(0,229,255,0.3)]' 
+              : 'bg-[#151D2E] text-slate-400 hover:text-white border border-slate-700'
+            }`}
+          >
+            <Printer className="w-4 h-4" /> Reporte Diario
+          </button>
+
+          <button
+            onClick={() => setVista('formal')}
+            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs md:text-sm font-bold transition-all ${
+              vista === 'formal' 
+              ? 'bg-amber-400 text-amber-950 shadow-[0_0_15px_rgba(251,191,36,0.3)]' 
+              : 'bg-[#151D2E] text-slate-400 hover:text-amber-400 border border-slate-700'
+            }`}
+          >
+            <ShieldAlert className="w-4 h-4" /> Bitácora Formal (Acta)
+          </button>
         </div>
 
+        {}
         {vista === 'registro' && (
-          <div className="space-y-6 print:hidden">
-            {/* Tarjetas CRM */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {stats.map((s, i) => (
-                <div key={i} className="bg-[#151D2E] p-4 rounded-2xl shadow-lg border border-slate-800 flex items-center gap-4">
-                  <s.I className={`w-10 h-10 p-2 rounded-xl ${s.bg} ${s.c}`} />
-                  <div><p className="text-[10px] uppercase text-slate-400 font-bold">{s.t}</p><p className={`text-xl font-bold ${s.c === 'text-indigo-400' ? 'text-white' : s.c}`}>{s.v} <span className="text-xs text-slate-500">{s.s}</span></p></div>
+          <section className="mt-6 print:hidden w-full">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+              <div className="bg-[#151D2E] p-4 rounded-2xl shadow-lg border border-slate-800 flex items-center gap-4">
+                <div className="p-3 bg-[#00E676]/10 text-[#00E676] rounded-xl"><UserCheck className="w-6 h-6" /></div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1">Asistencia</p>
+                  <p className="text-xl font-extrabold text-[#00E676]">{porcentajeAsistencia}% <span className="text-xs font-medium text-slate-500 ml-1">({presentes}/{totalAlumnos})</span></p>
                 </div>
-              ))}
-            </div>
-
-            {/* Buscador */}
-            <div className="bg-[#151D2E] p-4 rounded-2xl border border-slate-800 flex flex-wrap gap-4 items-center">
-              <div className="relative flex-1 min-w-[200px]">
-                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
-                <input type="text" placeholder="Buscar..." value={busqueda} onChange={e => set('busqueda', e.target.value)} className="w-full pl-9 p-2 bg-[#0B1221] text-sm text-white rounded-lg border border-slate-700 outline-none focus:border-[#00E5FF]" />
               </div>
-              <select value={filtro} onChange={e => set('filtro', e.target.value)} className="p-2 bg-[#0B1221] text-sm text-white border border-slate-700 rounded-lg outline-none">
-                {['Todos', 'Visual', 'Auditivo', 'Kinestésico'].map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
+              <div className="bg-[#151D2E] p-4 rounded-2xl shadow-lg border border-slate-800 flex items-center gap-4">
+                <div className="p-3 bg-rose-500/10 text-rose-400 rounded-xl"><UserX className="w-6 h-6" /></div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1">Inasistencias</p>
+                  <p className="text-xl font-extrabold text-white">{faltas} <span className="text-xs font-medium text-slate-500 ml-1">alumnos</span></p>
+                </div>
+              </div>
+              <div className="bg-[#151D2E] p-4 rounded-2xl shadow-lg border border-slate-800 flex items-center gap-4">
+                <div className="p-3 bg-[#00E5FF]/10 text-[#00E5FF] rounded-xl"><Home className="w-6 h-6" /></div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1">Trabajo Casa</p>
+                  <p className="text-xl font-extrabold text-white">{trabajandoCasa} <span className="text-xs font-medium text-slate-500 ml-1">hoy</span></p>
+                </div>
+              </div>
+              <div className="bg-[#151D2E] p-4 rounded-2xl shadow-lg border border-slate-800 flex items-center gap-4">
+                <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl"><BookOpen className="w-6 h-6" /></div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1">Tareas Dadas</p>
+                  <p className="text-xl font-extrabold text-white">{tareasCumplidas} <span className="text-xs font-medium text-slate-500 ml-1">alumnos</span></p>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {}
+        {vista === 'registro' && (
+          <main className="mt-6 space-y-6 print:hidden w-full">
+            <div className="bg-[#151D2E] p-4 rounded-2xl shadow-lg border border-slate-800 flex flex-col md:flex-row gap-4 justify-between items-center w-full">
+              <div className="relative flex-1 w-full max-w-md">
+                <Search className="w-5 h-5 text-slate-500 absolute left-4 top-3" />
+                <input 
+                  type="text" placeholder="Buscar alumno..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 bg-[#0B1221] border border-slate-700 rounded-xl text-sm text-white outline-none focus:border-[#00E5FF] transition-all"
+                />
+              </div>
+              <div className="flex items-center gap-3 w-full md:w-auto">
+                <span className="text-xs text-slate-400 font-semibold uppercase">Filtro Canal:</span>
+                <select
+                  value={filtroCanal} onChange={(e) => setFiltroCanal(e.target.value)}
+                  className="bg-[#0B1221] border border-slate-700 rounded-xl text-sm font-semibold py-2.5 px-4 text-white outline-none focus:border-[#00E5FF] w-full md:w-auto"
+                >
+                  <option value="Todos">Todos</option><option value="Visual">Visual</option><option value="Auditivo">Auditivo</option><option value="Kinestésico">Kinestésico</option>
+                </select>
+              </div>
             </div>
 
-            {/* Grid de Alumnos */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6 gap-4">
-              {alumnosFiltrados.map(a => (
-                <div key={a.id} className={`bg-[#151D2E] p-4 rounded-2xl border flex flex-col gap-3 ${a.asistencia ? 'border-slate-800' : 'border-rose-900/40 bg-rose-950/10'}`}>
-                  <div className="flex justify-between">
-                    <div>
-                      <h3 className="text-sm font-bold text-white leading-tight">{a.nombre}</h3>
-                      <p className="text-[10px] text-slate-400 mt-1">N.L: {a.id} • <span className="uppercase text-[#00E5FF]">{a.canal}</span></p>
-                    </div>
-                    <button onClick={() => set('alSel', a)} className="p-2 bg-[#0B1221] rounded-lg text-slate-400 hover:text-[#00E5FF] shrink-0 border border-slate-800 h-fit"><User className="w-4 h-4" /></button>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2">
-                    <button onClick={() => tog(a.id, 'asistencia')} className={`p-2 rounded-lg border text-[10px] font-bold flex flex-col items-center ${a.asistencia ? 'bg-[#00E676]/10 text-[#00E676] border-[#00E676]/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
-                      {a.asistencia ? <UserCheck className="w-4 h-4 mb-1" /> : <UserX className="w-4 h-4 mb-1" />} {a.asistencia ? 'PRESENTE' : 'FALTÓ'}
-                    </button>
-                    <button onClick={() => tog(a.id, 'lugar')} disabled={!a.asistencia} className={`p-2 rounded-lg border text-[10px] font-bold flex flex-col items-center ${!a.asistencia ? 'opacity-30 border-slate-800 bg-[#0B1221]' : a.lugar === 'salon' ? 'bg-[#00E5FF]/10 text-[#00E5FF] border-[#00E5FF]/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
-                      {a.lugar === 'salon' ? <School className="w-4 h-4 mb-1" /> : <Home className="w-4 h-4 mb-1" />} {a.lugar === 'salon' ? 'SALÓN' : 'CASA'}
-                    </button>
-                    <button onClick={() => tog(a.id, 'tarea')} disabled={!a.asistencia} className={`p-2 rounded-lg border text-[10px] font-bold flex flex-col items-center ${!a.asistencia ? 'opacity-30 border-slate-800 bg-[#0B1221]' : a.tarea ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-[#0B1221] text-slate-400 border-slate-700'}`}>
-                      <BookOpen className="w-4 h-4 mb-1" /> {a.tarea ? 'CUMPLIÓ' : 'PENDIENTE'}
-                    </button>
-                  </div>
-
-                  <div className="border-t border-slate-800 pt-2">
-                    {idInc === a.id ? (
-                      <div className="flex gap-2">
-                        <select value={nuevoInc.categoria} onChange={e => set('nuevoInc', {...nuevoInc, categoria: e.target.value})} className="text-xs p-1.5 bg-[#0B1221] border border-slate-700 rounded text-white outline-none">
-                          {['Conducta', 'Académico', 'Salud'].map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                        <input type="text" placeholder="Nota..." value={nuevoInc.detalle} onChange={e => set('nuevoInc', {...nuevoInc, detalle: e.target.value})} className="flex-1 text-xs p-1.5 bg-[#0B1221] border border-slate-700 rounded text-white outline-none" />
-                        <button onClick={() => modInc(a.id, 'add')} className="bg-[#00E5FF] text-black px-2 rounded font-bold"><Plus className="w-4 h-4" /></button>
+            {/* Expansión total de la cuadrícula a 100% de la pantalla */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6 gap-5 w-full">
+              {alumnosFiltrados.length > 0 ? (
+                alumnosFiltrados.map((alumno) => (
+                  <div 
+                    key={alumno.id}
+                    className={`bg-[#151D2E] rounded-2xl p-5 shadow-lg border transition-all flex flex-col gap-4 h-full ${
+                      alumno.asistencia ? 'border-slate-800 hover:border-[#00E5FF]/50' : 'border-rose-900/50 bg-rose-950/10'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <h2 className="text-[14px] font-bold text-white leading-tight break-words mb-2">{alumno.nombre}</h2>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`px-2 py-0.5 text-[9px] font-bold rounded-md uppercase tracking-wider ${
+                            alumno.canal === 'Visual' ? 'bg-[#00E5FF]/10 text-[#00E5FF]' : alumno.canal === 'Auditivo' ? 'bg-purple-500/10 text-purple-400' : 'bg-amber-500/10 text-amber-400'
+                          }`}>{alumno.canal}</span>
+                          <p className="text-[10px] text-slate-500 font-medium">N.L: {alumno.id}</p>
+                        </div>
                       </div>
-                    ) : (
-                      <button onClick={() => set('idInc', a.id)} className="text-[10px] text-[#00E5FF] flex items-center gap-1 font-bold"><Plus className="w-3 h-3" /> Agregar Nota {a.incidentes.length > 0 && <span className="text-amber-400 ml-2">({a.incidentes.length})</span>}</button>
-                    )}
+                      <button onClick={() => setAlumnoSeleccionado(alumno)} className="p-2 bg-[#0B1221] text-slate-400 hover:text-[#00E5FF] hover:bg-[#00E5FF]/10 rounded-xl transition-colors shrink-0 border border-slate-800" title="Ver Perfil">
+                        <User className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 mt-auto pt-2">
+                      <button onClick={() => toggleAsistencia(alumno.id)} className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${alumno.asistencia ? 'bg-[#00E676]/10 text-[#00E676] border-[#00E676]/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
+                        {alumno.asistencia ? <UserCheck className="w-4 h-4 mb-1" /> : <UserX className="w-4 h-4 mb-1" />}
+                        <span className="text-[9px] font-bold">{alumno.asistencia ? 'PRESENTE' : 'FALTÓ'}</span>
+                      </button>
+                      <button onClick={() => toggleLugar(alumno.id)} disabled={!alumno.asistencia} className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${!alumno.asistencia ? 'opacity-30 cursor-not-allowed bg-[#0B1221] border-slate-800 text-slate-500' : alumno.lugar === 'salon' ? 'bg-[#00E5FF]/10 text-[#00E5FF] border-[#00E5FF]/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
+                        {alumno.lugar === 'salon' ? <School className="w-4 h-4 mb-1" /> : <Home className="w-4 h-4 mb-1" />}
+                        <span className="text-[9px] font-bold">{alumno.lugar === 'salon' ? 'SALÓN' : 'CASA'}</span>
+                      </button>
+                      <button onClick={() => toggleTarea(alumno.id)} disabled={!alumno.asistencia} className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${!alumno.asistencia ? 'opacity-30 cursor-not-allowed bg-[#0B1221] border-slate-800 text-slate-500' : alumno.tarea ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-[#0B1221] text-slate-400 border-slate-700'}`}>
+                        <BookOpen className="w-4 h-4 mb-1" />
+                        <span className="text-[9px] font-bold">{alumno.tarea ? 'CUMPLIÓ' : 'NADA'}</span>
+                      </button>
+                    </div>
+
+                    <div className="border-t border-slate-800 pt-3">
+                      {idAlumnoIncidente === alumno.id ? (
+                        <div className="space-y-2 bg-[#0B1221] p-2.5 rounded-xl border border-slate-700">
+                          <div className="flex gap-2">
+                            <select value={incidenteNuevo.categoria} onChange={(e) => setIncidenteNuevo({ ...incidenteNuevo, categoria: e.target.value })} className="text-xs p-1 bg-[#151D2E] border border-slate-700 rounded-lg text-slate-300 outline-none focus:border-[#00E5FF] flex-1">
+                              <option value="Conducta">Conducta</option><option value="Académico">Académico</option><option value="Emocional">Emocional</option><option value="Salud">Salud</option><option value="Cumplimiento">Cumplimiento</option>
+                            </select>
+                            <button onClick={() => setIdAlumnoIncidente(null)} className="text-slate-500 hover:text-white shrink-0 bg-[#151D2E] p-1.5 rounded-lg border border-slate-700"><X className="w-4 h-4" /></button>
+                          </div>
+                          <textarea placeholder="Describe el incidente..." value={incidenteNuevo.detalle} onChange={(e) => setIncidenteNuevo({ ...incidenteNuevo, detalle: e.target.value })} className="w-full text-xs p-2 bg-[#151D2E] text-white border border-slate-700 rounded-lg outline-none focus:border-[#00E5FF] resize-none h-12" />
+                          <button onClick={() => agregarIncidente(alumno.id)} className="w-full bg-[#00E5FF] hover:bg-[#00cce6] text-[#0B1221] text-xs py-1.5 rounded-lg font-bold flex items-center justify-center gap-1.5">
+                            <Plus className="w-4 h-4" /> Guardar
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <button onClick={() => setIdAlumnoIncidente(alumno.id)} className="text-[10px] text-[#00E5FF] hover:text-white flex items-center gap-1 font-semibold"><Plus className="w-3 h-3" /> Agregar Nota</button>
+                          {alumno.incidentes.length > 0 && <span className="flex items-center gap-1 text-[9px] bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded-md font-bold"><AlertCircle className="w-3 h-3" /> {alumno.incidentes.length} Nota(s)</span>}
+                        </div>
+                      )}
+                      {alumno.incidentes.length > 0 && idAlumnoIncidente !== alumno.id && (
+                        <div className="mt-2 space-y-1">
+                          {alumno.incidentes.slice(0, 1).map((inc) => (
+                            <div key={inc.id} className="text-[10px] bg-[#0B1221] p-2 rounded-lg border border-slate-800 flex items-start gap-2">
+                              <span className="font-bold text-amber-400 uppercase">{inc.categoria}:</span>
+                              <p className="flex-1 text-slate-400 truncate">{inc.detalle}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
+                ))
+              ) : (
+                <div className="col-span-full bg-[#151D2E] rounded-2xl p-10 text-center border border-slate-800">
+                  <p className="text-slate-400 font-medium">No hay alumnos que coincidan.</p>
                 </div>
-              ))}
+              )}
             </div>
-          </div>
+          </main>
         )}
 
-        {/* Modal Ficha Técnica */}
-        {alSel && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50 print:hidden">
-            <div className="bg-[#151D2E] rounded-2xl w-full max-w-md border border-slate-700 p-5 space-y-4">
-              <div className="flex justify-between items-start border-b border-slate-800 pb-3">
-                <div><h3 className="text-white font-bold">{alSel.nombre}</h3><p className="text-xs text-slate-400">Ficha Técnica</p></div>
-                <button onClick={() => set('alSel', null)} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <label className="text-slate-500 font-bold block mb-1">Canal:</label>
-                  <select value={alSel.canal} onChange={e => updateAl(alSel.id, a => ({...a, canal: e.target.value}))} className="w-full p-2 bg-[#0B1221] border border-slate-700 rounded text-white outline-none">
-                    {['Visual', 'Auditivo', 'Kinestésico'].map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
+        {}
+        {alumnoSeleccionado && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 print:hidden">
+            <div className="bg-[#151D2E] rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-700 flex flex-col">
+              <header className="p-5 border-b border-slate-800 flex items-center justify-between sticky top-0 bg-[#151D2E] z-10">
+                <div className="flex items-center gap-3">
+                  <span className="p-2.5 bg-[#00E5FF]/10 text-[#00E5FF] rounded-xl"><User className="w-5 h-5" /></span>
+                  <div><h3 className="text-base font-bold text-white">Ficha Técnica</h3><p className="text-[11px] text-slate-400">Perfil e Historial</p></div>
                 </div>
-                <div><label className="text-slate-500 font-bold block mb-1">Diagnóstico:</label><textarea value={alSel.diagnostico} onChange={e => updateAl(alSel.id, a => ({...a, diagnostico: e.target.value}))} className="w-full p-2 bg-[#0B1221] border border-slate-700 rounded text-white h-10 resize-none outline-none" /></div>
-              </div>
-              <div className="space-y-2 max-h-40 overflow-auto">
-                <h4 className="text-xs font-bold text-white border-b border-slate-800 pb-1">Bitácora ({alSel.incidentes.length})</h4>
-                {alSel.incidentes.map(i => (
-                  <div key={i.id} className="text-xs bg-[#0B1221] p-2 rounded flex justify-between items-start gap-2 border border-slate-800">
-                    <div><span className="text-amber-400 font-bold mr-2">{i.categoria}</span><span className="text-slate-500">{i.fecha}</span><p className="text-slate-300 mt-1">{i.detalle}</p></div>
-                    <button onClick={() => modInc(alSel.id, 'del', i.id)} className="text-slate-500 hover:text-rose-500"><Trash2 className="w-4 h-4" /></button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ============================================================== */}
-        {/* VISTA DE REPORTE - RESTRINGIDA A TAMAÑO DE HOJA (CARTA) */}
-        {/* ============================================================== */}
-        {vista === 'reporte' && (
-          <div className="w-full max-w-[900px] mx-auto pb-20 print:pb-0">
-            
-            {/* Panel de control de impresión */}
-            <div className="bg-[#151D2E] p-4 rounded-xl border border-slate-800 flex justify-between items-center mb-6 print:hidden shadow-lg">
-              <div>
-                <h3 className="text-white font-bold flex items-center gap-2"><Printer className="w-5 h-5 text-[#00E5FF]" /> Preparado para Imprimir</h3>
-                <p className="text-xs text-slate-400">El diseño ya simula una hoja Carta.</p>
-              </div>
-              <button onClick={() => window.print()} className="bg-[#00E5FF] text-[#0B1221] px-5 py-2.5 rounded-lg font-bold flex items-center gap-2 hover:bg-[#00cce6] transition shadow-[0_0_15px_rgba(0,229,255,0.3)]">
-                Imprimir Documento
-              </button>
-            </div>
-
-            {/* Hoja Blanca (A4/Carta) */}
-            <div className="bg-white p-10 md:p-14 shadow-2xl rounded-sm text-black print:p-0 print:shadow-none border border-slate-200 print:border-none">
-              
-              <header className="border-b-2 border-black pb-4 mb-6 flex justify-between items-end">
-                <div>
-                  <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight">Reporte Control Docente</h1>
-                  <p className="text-sm font-bold text-slate-700 mt-1">3° "A" • Profr. Aristeo Maya Corona</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold">FECHA:</p>
-                  <p className="text-xl font-black">{fecha}</p>
-                </div>
+                <button onClick={() => setAlumnoSeleccionado(null)} className="p-1.5 text-slate-400 hover:text-white bg-[#0B1221] rounded-full border border-slate-700"><X className="w-5 h-5" /></button>
               </header>
-              
-              <table className="w-full text-left text-xs md:text-sm border-collapse">
-                <thead>
-                  <tr className="border-y-2 border-black bg-slate-100">
-                    <th className="p-3 font-black">N.L.</th>
-                    <th className="p-3 font-black">Nombre del Alumno</th>
-                    <th className="p-3 font-black text-center">Asist.</th>
-                    <th className="p-3 font-black text-center">Ubicación</th>
-                    <th className="p-3 font-black text-center">Tarea</th>
-                    <th className="p-3 font-black">Canal</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {alumnos.map(a => (
-                    <tr key={a.id} className="border-b border-slate-300">
-                      <td className="p-3 font-black text-slate-600">{a.id}</td>
-                      <td className="p-3 font-bold uppercase">{a.nombre}</td>
-                      <td className="p-3 text-center font-bold">{a.asistencia ? 'PRESENTE' : 'FALTÓ'}</td>
-                      <td className="p-3 text-center capitalize">{a.asistencia ? a.lugar : '-'}</td>
-                      <td className="p-3 text-center font-bold">{a.asistencia ? (a.tarea ? 'CUMPLIÓ' : 'PENDIENTE') : '-'}</td>
-                      <td className="p-3 font-bold uppercase text-[10px] md:text-xs text-slate-500">{a.canal}</td>
-                    </tr>
-                  ))}
-                </tbody>
+
+              <div className="p-5 space-y-5">
+                <div className="bg-[#0B1221] p-5 rounded-xl border border-slate-800 space-y-4">
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-slate-500">Nombre</label>
+                    <p className="text-sm font-extrabold text-white">{alumnoSeleccionado.nombre}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-500">Canal</label>
+                      <select value={alumnoSeleccionado.canal} onChange={(e) => guardarPerfilPedagogico(alumnoSeleccionado.id, e.target.value, alumnoSeleccionado.diagnostico)} className="w-full mt-1.5 p-2 bg-[#151D2E] border border-slate-700 rounded-lg text-xs font-bold text-slate-300 outline-none">
+                        <option value="Visual">Visual</option><option value="Auditivo">Auditivo</option><option value="Kinestésico">Kinestésico</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-500">Lugar</label>
+                      <p className="text-xs font-bold text-slate-300 mt-2.5 flex items-center gap-1.5 capitalize">{alumnoSeleccionado.lugar === 'salon' ? <School className="w-4 h-4 text-[#00E5FF]" /> : <Home className="w-4 h-4 text-amber-400" />}{alumnoSeleccionado.lugar === 'salon' ? 'Salón' : 'Casa'}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-slate-500">Notas Docente</label>
+                    <textarea value={alumnoSeleccionado.diagnostico} onChange={(e) => guardarPerfilPedagogico(alumnoSeleccionado.id, alumnoSeleccionado.canal, e.target.value)} className="w-full mt-1.5 p-3 text-xs bg-[#151D2E] text-slate-300 border border-slate-700 rounded-lg outline-none h-16" />
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-2"><FileText className="w-4 h-4 text-[#00E5FF]" /> Bitácora ({alumnoSeleccionado.incidentes.length})</h4>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {alumnoSeleccionado.incidentes.map((inc) => (
+                      <div key={inc.id} className="p-3 bg-[#0B1221] rounded-xl border border-slate-800 flex justify-between gap-3">
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-bold bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded uppercase">{inc.categoria}</span>
+                            <span className="text-[9px] text-slate-500">{inc.fecha}</span>
+                          </div>
+                          <p className="text-[11px] text-slate-300">{inc.detalle}</p>
+                        </div>
+                        <button onClick={() => eliminarIncidente(alumnoSeleccionado.id, inc.id)} className="text-slate-500 hover:text-rose-500 h-fit p-1 bg-[#151D2E] rounded border border-slate-700"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {}
+        {vista === 'reporte' && (
+          <main className="mt-6 space-y-6 w-full max-w-[1000px] mx-auto pb-10">
+            <div className="bg-[#151D2E] p-5 rounded-2xl shadow-lg border border-[#00E5FF]/20 flex justify-between items-center print:hidden">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2"><Printer className="w-5 h-5 text-[#00E5FF]" /> Reporte Diario Formateado</h3>
+                <p className="text-xs text-slate-400">Listo para imprimir en tamaño carta.</p>
+              </div>
+              <button onClick={() => window.print()} className="bg-[#00E5FF] hover:bg-[#00cce6] text-[#0B1221] font-bold text-xs px-5 py-3 rounded-xl flex gap-2 shadow-lg"><Printer className="w-4 h-4" /> Imprimir Hoja</button>
+            </div>
+
+            <div className="bg-[#151D2E] text-slate-200 p-8 rounded-2xl border border-slate-800 print:bg-white print:text-black print:border-none print:shadow-none print:p-0">
+              <header className="border-b-2 border-slate-700 print:border-black pb-4 flex justify-between">
+                <div>
+                  <h1 className="text-lg font-bold text-white print:text-black uppercase">Reporte de Grupo Docente</h1>
+                  <p className="text-xs font-bold text-[#00E5FF] print:text-slate-800">Tercer Grado de Primaria • Grupo "A"</p>
+                </div>
+                <p className="text-xs font-extrabold print:text-black">FECHA: {fecha}</p>
+              </header>
+
+              <div className="grid grid-cols-3 gap-4 py-3 text-xs border-b border-slate-700 print:border-slate-300 bg-[#0B1221] print:bg-slate-100 p-3 my-4">
+                <div><span className="font-bold print:text-slate-600 block text-[9px]">ASISTENCIA</span><p className="text-sm font-extrabold text-[#00E676] print:text-black">{porcentajeAsistencia}% ({presentes}/{totalAlumnos})</p></div>
+                <div><span className="font-bold print:text-slate-600 block text-[9px]">TRABAJO CASA</span><p className="text-sm font-extrabold text-[#00E5FF] print:text-black">{trabajandoCasa} Alumnos</p></div>
+                <div><span className="font-bold print:text-slate-600 block text-[9px]">TAREAS ENTREGADAS</span><p className="text-sm font-extrabold text-indigo-400 print:text-black">{tareasCumplidas} Alumnos</p></div>
+              </div>
+
+              <h3 className="text-[11px] font-bold print:text-black uppercase mt-6 mb-2">I. Control Diario (Asistencia y Tareas)</h3>
+              <table className="w-full text-left text-[11px] border-collapse">
+                <thead><tr className="border-b-2 border-slate-700 print:border-black print:bg-slate-200 text-slate-400 print:text-black"><th className="p-2 font-bold w-10">N.L.</th><th className="p-2 font-bold">Nombre del Alumno</th><th className="p-2 font-bold text-center">Asistencia</th><th className="p-2 font-bold text-center">Ubicación</th><th className="p-2 font-bold text-center">Tarea</th><th className="p-2 font-bold">Canal</th></tr></thead>
+                <tbody>{alumnos.map((al) => (<tr key={al.id} className="border-b border-slate-800 print:border-slate-300"><td className="p-2 print:text-slate-700">{al.id}</td><td className="p-2 font-bold print:text-black">{al.nombre}</td><td className="p-2 text-center font-bold">{al.asistencia ? 'PRESENTE' : 'FALTÓ'}</td><td className="p-2 text-center">{al.asistencia ? al.lugar : '-'}</td><td className="p-2 text-center font-bold">{al.asistencia ? (al.tarea ? 'CUMPLIÓ' : 'NADA') : '-'}</td><td className="p-2 uppercase text-[9px]">{al.canal}</td></tr>))}</tbody>
               </table>
 
-              <footer className="mt-20 pt-4 border-t-2 border-black flex justify-between text-xs font-bold text-center">
-                <div className="w-48 pt-2">
-                  <div className="border-b border-black mb-2 h-10"></div>
-                  Firma Docente
-                </div>
-                <div className="w-48 pt-2">
-                  <div className="border-b border-black mb-2 h-10"></div>
-                  Vo. Bo. Dirección
-                </div>
+              <div className="print:break-inside-avoid print:mt-10 mt-10">
+                <h3 className="text-[11px] font-bold print:text-black uppercase mb-2">II. Bitácora de Observaciones</h3>
+                <table className="w-full text-left text-[11px] border-collapse">
+                  <thead><tr className="border-b-2 print:border-black print:bg-slate-200 text-slate-400 print:text-black"><th className="p-2 font-bold w-1/4">Alumno</th><th className="p-2 font-bold w-1/6">Categoría</th><th className="p-2 font-bold">Descripción</th></tr></thead>
+                  <tbody>
+                    {alumnos.some(a => a.incidentes.length > 0) ? alumnos.flatMap(a => a.incidentes.map(inc => ({ nombre: a.nombre, ...inc }))).map((item) => (<tr key={item.id} className="border-b border-slate-800 print:border-slate-300"><td className="p-2 font-bold print:text-black">{item.nombre}</td><td className="p-2 font-bold uppercase text-[9px] text-amber-400 print:text-slate-800">{item.categoria}</td><td className="p-2 italic print:text-black">{item.detalle}</td></tr>)) : <tr><td colSpan="3" className="p-4 text-center italic text-slate-500">No hay observaciones.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+
+              <footer className="print:break-inside-avoid print:mt-16 mt-16 pt-8 border-t border-slate-700 print:border-black flex justify-between text-[11px]">
+                <div className="text-center w-48"><div className="border-t border-slate-500 print:border-black pt-1 uppercase font-bold">Firma Docente</div><p className="mt-1">Profr. Aristeo Maya Corona</p></div>
+                <div className="text-center w-48"><div className="border-t border-slate-500 print:border-black pt-1 uppercase font-bold">Vo. Bo. Dirección</div><p className="mt-1">Profa. Rosa María Reynoso Gómez</p></div>
               </footer>
             </div>
-          </div>
+          </main>
+        )}
+
+        {}
+        {vista === 'formal' && (
+          <main className="mt-6 w-full max-w-[900px] mx-auto pb-16">
+            {!imprimirFormal ? (
+              <div className="bg-[#151D2E] p-6 md:p-8 rounded-2xl border border-amber-500/20 shadow-[0_0_30px_rgba(251,191,36,0.1)] space-y-6 print:hidden">
+                <div className="border-b border-slate-700 pb-4 mb-6">
+                  <h2 className="text-xl font-bold text-amber-400 flex items-center gap-2"><ShieldAlert className="w-6 h-6" /> Formulario de Acta Circunstanciada</h2>
+                  <p className="text-sm text-slate-400 mt-1">Llene los datos de forma objetiva. El documento final tendrá formato oficial para impresión y firmas.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-slate-500">Alumno Involucrado principal</label>
+                    <select value={formFormal.idAlumno} onChange={e => setFormFormal({...formFormal, idAlumno: e.target.value})} className="w-full p-3 bg-[#0B1221] border border-slate-700 rounded-xl text-sm text-white outline-none focus:border-amber-500 font-semibold">
+                      <option value="">-- Seleccionar Alumno --</option>
+                      {alumnos.map(al => <option key={al.id} value={al.id}>{al.nombre}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-slate-500">Hora del Incidente</label>
+                    <input type="time" value={formFormal.hora} onChange={e => setFormFormal({...formFormal, hora: e.target.value})} className="w-full p-3 bg-[#0B1221] border border-slate-700 rounded-xl text-sm text-white outline-none focus:border-amber-500 [color-scheme:dark]" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-slate-500">Lugar Exacto</label>
+                    <input type="text" placeholder="Ej. Patio escolar, Salón de clases..." value={formFormal.lugar} onChange={e => setFormFormal({...formFormal, lugar: e.target.value})} className="w-full p-3 bg-[#0B1221] border border-slate-700 rounded-xl text-sm text-white outline-none focus:border-amber-500" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-slate-500">Testigos (Nombres separados por coma)</label>
+                    <input type="text" placeholder="Si aplica..." value={formFormal.testigos} onChange={e => setFormFormal({...formFormal, testigos: e.target.value})} className="w-full p-3 bg-[#0B1221] border border-slate-700 rounded-xl text-sm text-white outline-none focus:border-amber-500" />
+                  </div>
+                </div>
+
+                <div className="space-y-3 pt-4 border-t border-slate-700">
+                  <label className="text-[11px] uppercase font-bold text-amber-400 block">Categorización Rápida (Seleccione las aplicables)</label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 bg-[#0B1221] p-4 rounded-xl border border-slate-800">
+                    {opcionesFaltasForm.map((falta, idx) => (
+                      <label key={idx} className="flex items-start gap-2 cursor-pointer hover:bg-[#151D2E] p-1.5 rounded transition-colors">
+                        <input type="checkbox" checked={formFormal.faltasSeleccionadas.includes(falta)} onChange={() => toggleFaltaFormal(falta)} className="mt-1 accent-amber-500" />
+                        <span className="text-xs text-slate-300">{falta}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-1 pt-2">
+                  <label className="text-[10px] uppercase font-bold text-slate-500 flex justify-between">1. Descripción objetiva de los hechos <span className="text-rose-400 lowercase font-normal">*Sin adjetivos o juicios</span></label>
+                  <textarea placeholder="Narre cronológicamente qué sucedió, quién inició, cómo se desarrolló..." value={formFormal.descripcion} onChange={e => setFormFormal({...formFormal, descripcion: e.target.value})} className="w-full p-4 bg-[#0B1221] border border-slate-700 rounded-xl text-sm text-white outline-none focus:border-amber-500 min-h-[100px]" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-500">2. Acción Correctiva Inmediata</label>
+                  <textarea placeholder="Ej. Se separó a los alumnos. Se dialogó con ellos. Se aplicó reglamento interno..." value={formFormal.accion} onChange={e => setFormFormal({...formFormal, accion: e.target.value})} className="w-full p-4 bg-[#0B1221] border border-slate-700 rounded-xl text-sm text-white outline-none focus:border-amber-500 min-h-[80px]" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-500">3. Acuerdos / Seguimiento</label>
+                  <textarea placeholder="Ej. Cita a padres, canalización a psicología escolar, trabajo comunitario..." value={formFormal.acuerdos} onChange={e => setFormFormal({...formFormal, acuerdos: e.target.value})} className="w-full p-4 bg-[#0B1221] border border-slate-700 rounded-xl text-sm text-white outline-none focus:border-amber-500 min-h-[80px]" />
+                </div>
+
+                <button onClick={() => { if(!formFormal.idAlumno){ alert("Seleccione un alumno primero"); return; } setImprimirFormal(true); }} className="w-full mt-4 bg-amber-500 hover:bg-amber-600 text-amber-950 font-black text-sm py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all">
+                  <Printer className="w-5 h-5" /> Generar Acta Oficial Lista para Imprimir
+                </button>
+              </div>
+            ) : (
+              // PLANTILLA DE IMPRESIÓN DEL ACTA FORMAL (A4)
+              <div className="bg-white text-black w-full mx-auto p-10 md:p-14 shadow-2xl rounded-sm print:p-0 print:shadow-none print:w-full print:max-w-full relative min-h-[1000px]">
+                
+                {/* Botones de control para vista de documento */}
+                <div className="print:hidden flex justify-between mb-8 pb-4 border-b border-slate-200">
+                  <button onClick={() => setImprimirFormal(false)} className="text-slate-500 hover:text-black font-bold text-sm px-4 py-2 border border-slate-300 rounded-lg transition-colors">← Volver al Editor</button>
+                  <button onClick={() => window.print()} className="bg-amber-500 hover:bg-amber-600 text-amber-950 font-bold text-sm px-6 py-2 rounded-lg flex items-center gap-2 shadow-md transition-colors"><Printer className="w-4 h-4" /> Imprimir Acta Formal</button>
+                </div>
+
+                {/* MEMBRETE OFICIAL DE LA ESCUELA */}
+                <header className="text-center mb-10 border-b-[3px] border-double border-slate-300 pb-6 print:break-inside-avoid">
+                  <h2 className="text-xl font-black uppercase tracking-widest text-slate-900">Escuela Primaria "Vicente Guerrero"</h2>
+                  <div className="text-[11px] font-bold text-slate-600 mt-2 space-y-1">
+                    <p>C.C.T.: 16DPR2428N</p>
+                    <p>ZONA ESCOLAR: 307 &nbsp;&nbsp;&nbsp; SECTOR: 026</p>
+                    <p>TURNO MATUTINO</p>
+                    <p>Vicente Riva Palacio, Municipio de San Lucas, Michoacán.</p>
+                  </div>
+                  <div className="mt-8">
+                    <h1 className="text-2xl font-black uppercase tracking-tight border-b-4 border-black inline-block pb-1 mb-2">Acta Circunstanciada de Hechos</h1>
+                    <p className="text-sm font-bold uppercase mt-2">Tercer Grado &nbsp;•&nbsp; Grupo "A"</p>
+                  </div>
+                </header>
+
+                {/* CUERPO DEL DOCUMENTO */}
+                <div className="space-y-6 text-sm leading-relaxed">
+                  <p className="text-justify print:text-[13px] leading-loose">
+                    En la Tenencia de <span className="font-bold">Vicente Riva Palacio, Municipio de San Lucas, Michoacán</span>, dentro de las instalaciones de la <span className="font-bold">Escuela Primaria "Vicente Guerrero"</span>, siendo las <span className="font-bold border-b border-black px-2">{formFormal.hora || '______'}</span> horas del día <span className="font-bold border-b border-black px-2">{fecha.split('-').reverse().join('/')}</span>, 
+                    el docente titular <span className="font-bold">Profr. Aristeo Maya Corona</span> procede a levantar la presente acta para dejar constancia de los hechos ocurridos en <span className="font-bold border-b border-black px-2">{formFormal.lugar}</span>, 
+                    relacionados con el/la alumno(a):
+                  </p>
+
+                  <div className="bg-slate-100 p-4 font-bold text-lg text-center uppercase border border-slate-300 print:break-inside-avoid">
+                    {alumnos.find(a => a.id === parseInt(formFormal.idAlumno))?.nombre || 'ALUMNO NO SELECCIONADO'}
+                  </div>
+
+                  {formFormal.testigos && (
+                    <p className="print:break-inside-avoid"><span className="font-bold">En presencia de los testigos:</span> {formFormal.testigos}</p>
+                  )}
+
+                  {formFormal.faltasSeleccionadas.length > 0 && (
+                    <div className="print:break-inside-avoid mt-6">
+                      <h3 className="font-black uppercase text-xs mb-2">Categorías de la falta aplicables:</h3>
+                      <ul className="list-disc pl-8 font-bold text-slate-700 space-y-1">
+                        {formFormal.faltasSeleccionadas.map(f => <li key={f}>{f}</li>)}
+                      </ul>
+                    </div>
+                  )}
+
+                  <div className="print:break-inside-avoid mt-8">
+                    <h3 className="font-black uppercase text-xs mb-2 border-b border-black inline-block">1. Descripción objetiva de los hechos:</h3>
+                    <p className="whitespace-pre-wrap print:text-[13px] leading-loose text-justify mt-2">{formFormal.descripcion || 'Sin descripción detallada.'}</p>
+                  </div>
+
+                  <div className="print:break-inside-avoid mt-8">
+                    <h3 className="font-black uppercase text-xs mb-2 border-b border-black inline-block">2. Acción Correctiva Inmediata:</h3>
+                    <p className="whitespace-pre-wrap print:text-[13px] leading-loose text-justify mt-2">{formFormal.accion || 'No se registraron acciones inmediatas.'}</p>
+                  </div>
+
+                  <div className="print:break-inside-avoid mt-8">
+                    <h3 className="font-black uppercase text-xs mb-2 border-b border-black inline-block">3. Acuerdos y Seguimiento:</h3>
+                    <p className="whitespace-pre-wrap print:text-[13px] leading-loose text-justify mt-2">{formFormal.acuerdos || 'No se registraron acuerdos específicos.'}</p>
+                  </div>
+                </div>
+
+                {/* BLOQUE DE FIRMAS: INSEPARABLE Y CENTRADO EN HOJA 2 SI ES NECESARIO */}
+                <div className="print:break-inside-avoid print:mt-[80px] mt-[80px] mb-[60px]">
+                  <p className="text-[11px] text-justify mb-24 italic text-slate-700 leading-relaxed max-w-4xl mx-auto">
+                    La presente acta se lee a los involucrados, quienes manifiestan su entera conformidad con la descripción de los hechos y los acuerdos establecidos, firmando al calce para constancia y efectos legales o administrativos a que haya lugar.
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-y-32 gap-x-12 text-center text-[11px] font-bold uppercase w-full max-w-3xl mx-auto pb-[60px]">
+                    <div className="flex flex-col items-center justify-end">
+                      <div className="border-t-[1.5px] border-black pt-2 w-full">Firma del Docente Titular</div>
+                      <p className="capitalize font-medium text-slate-800 mt-1">Profr. Aristeo Maya Corona</p>
+                    </div>
+                    <div className="flex flex-col items-center justify-end">
+                      <div className="border-t-[1.5px] border-black pt-2 w-full">Vo. Bo. Dirección Escolar</div>
+                      <p className="capitalize font-medium text-slate-800 mt-1">Profa. Rosa María Reynoso Gómez</p>
+                    </div>
+                    <div className="col-span-2 flex flex-col items-center justify-end mt-4">
+                      <div className="border-t-[1.5px] border-black pt-2 w-3/5 mb-8">Enterado: Firma del Padre, Madre o Tutor</div>
+                      <span className="capitalize font-medium text-slate-600 text-[10px] border-b border-slate-300 px-16 pb-1">Nombre completo y firma</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* PIE DE PÁGINA REPETITIVO (SOLO VISIBLE AL IMPRIMIR) */}
+                <div className="hidden print:block fixed bottom-0 left-0 right-0 text-center text-[8px] text-slate-500 font-bold uppercase border-t border-slate-300 pt-2 bg-white pb-3 w-full">
+                  Acta Circunstanciada de Hechos &nbsp;|&nbsp; Esc. Prim. Vicente Guerrero &nbsp;|&nbsp; C.C.T. 16DPR2428N
+                  <br/>
+                  <span className="text-[7px] font-normal tracking-widest mt-1 block">Documento Oficial • Hoja de uso interno y confidencial</span>
+                </div>
+              </div>
+            )}
+          </main>
         )}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 p-3 bg-[#0B1221]/95 border-t border-slate-800 z-30 print:hidden flex justify-center w-full">
-        <button onClick={guardarSheets} disabled={guardado} className={`w-full max-w-lg py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-sm transition-colors shadow-lg ${guardado ? 'bg-[#00E676] text-[#0B1221]' : 'bg-[#00E676] text-[#0B1221] hover:bg-[#00c766]'}`}>
-          {guardado ? <><CheckCircle2 className="w-5 h-5" /> ¡GUARDADO EN SHEETS!</> : <><Save className="w-5 h-5" /> GUARDAR EN GOOGLE SHEETS</>}
-        </button>
-      </div>
+      {/* FOOTER GLOBAL - Botón de guardado a Sheets */}
+      {vista !== 'formal' && (
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#0B1221]/95 backdrop-blur-md border-t border-slate-800 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] z-30 print:hidden w-full">
+          <div className="w-full px-4 md:px-8 flex items-center justify-between gap-4">
+            <div className="hidden md:flex flex-col">
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Estatus del Servidor</span>
+              <span className="text-[#00E5FF] text-xs font-bold flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#00E5FF] animate-pulse"></span>
+                Historial Local + Conexión a Google Sheets
+              </span>
+            </div>
+            
+            <button 
+              onClick={handleGuardarEnSheets} disabled={guardado}
+              className={`flex-1 md:flex-initial py-3.5 px-10 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm tracking-wide ${guardado ? 'bg-[#00E676] text-[#0B1221]' : 'bg-[#00E676] text-[#0B1221] hover:bg-[#00c766] hover:-translate-y-0.5 shadow-[0_0_20px_rgba(0,230,118,0.3)]'}`}
+            >
+              {guardado ? <><CheckCircle2 className="w-5 h-5 animate-bounce" /> ¡Guardando en Sheets...!</> : <><Save className="w-5 h-5" /> GUARDAR EN GOOGLE SHEETS</>}
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
