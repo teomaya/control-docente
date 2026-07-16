@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import { 
   Calendar, UserCheck, UserX, Home, School, BookOpen, Save, CheckCircle2, 
-  Printer, Search, BookOpenCheck, AlertCircle, Plus, Trash2, X, FileText, Award, User,
-  Lock // <-- Importamos el ícono del candado
+  Printer, Search, BookOpenCheck, AlertCircle, Plus, Trash2, X, FileText, Award, User, Lock 
 } from 'lucide-react';
 
-// Base de datos oficial corregida: 24 alumnos (respetando los números de lista)
 const alumnosIniciales = [
   { id: 1, nombre: 'Carmona Hilario Dayra Nahomi', asistencia: true, lugar: 'salon', tarea: true, canal: 'Visual', diagnostico: 'Aprende mejor con ejemplos visuales y colores.', incidentes: [] },
   { id: 2, nombre: 'Burgos Mancilla Franco', asistencia: true, lugar: 'salon', tarea: true, canal: 'Kinestésico', diagnostico: 'Disfruta el aprendizaje práctico y dinámico.', incidentes: [] },
@@ -26,761 +24,237 @@ const alumnosIniciales = [
   { id: 17, nombre: 'Saucedo Espinoza Alvaro Santiago', asistencia: true, lugar: 'salon', tarea: true, canal: 'Visual', diagnostico: 'Trabaja de forma muy ordenada en su libreta.', incidentes: [] },
   { id: 18, nombre: 'Toribio Herrera Eleazar', asistencia: true, lugar: 'salon', tarea: true, canal: 'Kinestésico', diagnostico: 'Excelente coordinación motriz en las actividades.', incidentes: [] },
   { id: 19, nombre: 'Torres Aguilera Kathia Paloma', asistencia: true, lugar: 'salon', tarea: true, canal: 'Visual', diagnostico: 'Facilidad para aprender mediante la observación directa.', incidentes: [] },
-  { id: 20, nombre: 'Zavala Pineda Vaitiare Monserrat', asistencia: true, lugar: 'salon', tarea: true, canal: 'Auditivo', diagnostico: 'Memoriza con facilidad rimas y explicaciones verbales.', incidentes: [] },
-  { id: 21, nombre: 'Zavaleta Orrostieta Elia Sofia', asistencia: true, lugar: 'salon', tarea: true, canal: 'Visual', diagnostico: 'Comprende fácilmente lecturas de texto.', incidentes: [] },
-  { id: 22, nombre: 'Lopez Venegas Rosalia', asistencia: true, lugar: 'salon', tarea: true, canal: 'Kinestésico', diagnostico: 'Se apoya mucho utilizando material didáctico concreto.', incidentes: [] },
-  { id: 23, nombre: 'Renteria Catalan Giselle', asistencia: true, lugar: 'salon', tarea: true, canal: 'Auditivo', diagnostico: 'Excelente comprensión lectora al leer en voz alta.', incidentes: [] },
-  { id: 24, nombre: 'Orozco Lopez Jose De Jesus', asistencia: true, lugar: 'salon', tarea: true, canal: 'Visual', diagnostico: 'Requiere indicaciones visuales claras en el pizarrón.', incidentes: [] }
+  { id: 20, nombre: 'Zavaleta Orrostieta Elia Sofia', asistencia: true, lugar: 'salon', tarea: true, canal: 'Visual', diagnostico: 'Comprende fácilmente lecturas de texto.', incidentes: [] }, // ¡Error "font:" corregido aquí!
+  { id: 21, nombre: 'Lopez Venegas Rosalia', asistencia: true, lugar: 'salon', tarea: true, canal: 'Kinestésico', diagnostico: 'Se apoya mucho utilizando material didáctico concreto.', incidentes: [] },
+  { id: 22, nombre: 'Renteria Catalan Giselle', asistencia: true, lugar: 'salon', tarea: true, canal: 'Auditivo', diagnostico: 'Excelente comprensión lectora al leer en voz alta.', incidentes: [] },
+  { id: 23, nombre: 'Orozco Lopez Jose De Jesus', asistencia: true, lugar: 'salon', tarea: true, canal: 'Visual', diagnostico: 'Requiere indicaciones visuales claras en el pizarrón.', incidentes: [] }
 ];
 
 export default function App() {
-  // --- NUEVO ESTADO PARA EL BLOQUEO (CONTRASEÑA) ---
-  const [estaAutenticado, setEstaAutenticado] = useState(false);
-  const [contrasena, setContrasena] = useState('');
+  const [auth, setAuth] = useState({ auth: false, error: '', pass: '' });
+  const [state, setState] = useState({
+    alumnos: alumnosIniciales, fecha: new Date().toISOString().split('T')[0],
+    busqueda: '', filtro: 'Todos', vista: 'registro', guardado: false,
+    alSel: null, idInc: null, nuevoInc: { categoria: 'Conducta', detalle: '' }
+  });
 
-  // --- ESTADOS ORIGINALES DEL SISTEMA ---
-  const [alumnos, setAlumnos] = useState(alumnosIniciales);
-  const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
-  const [busqueda, setBusqueda] = useState('');
-  const [filtroCanal, setFiltroCanal] = useState('Todos');
-  const [vista, setVista] = useState('registro'); 
-  const [guardado, setGuardado] = useState(false);
-  
-  const [alumnoSeleccionado, setAlumnoSeleccionado] = useState(null);
+  const { alumnos, fecha, busqueda, filtro, vista, guardado, alSel, idInc, nuevoInc } = state;
+  const set = (k, v) => setState(p => ({ ...p, [k]: v }));
 
-  const [incidenteNuevo, setIncidenteNuevo] = useState({ categoria: 'Conducta', detalle: '' });
-  const [idAlumnoIncidente, setIdAlumnoIncidente] = useState(null);
-
-  // --- LÓGICA DE VALIDACIÓN DE CONTRASEÑA ---
-  const CONTRASENA_CORRECTA = 'Profe2026'; 
+  const alumnosFiltrados = alumnos.filter(a => 
+    a.nombre?.toLowerCase().includes(busqueda.toLowerCase()) && (filtro === 'Todos' || a.canal === filtro)
+  );
 
   const manejarIngreso = (e) => {
     e.preventDefault();
-    if (contrasena === CONTRASENA_CORRECTA) {
-      setEstaAutenticado(true);
-    } else {
-      alert('Contraseña incorrecta. Intenta de nuevo.');
-      setContrasena(''); // Borra la contraseña si se equivocó
-    }
+    auth.pass === 'Profe2026' ? setAuth({ ...auth, auth: true }) : setAuth({ ...auth, error: 'Contraseña incorrecta', pass: '' });
   };
 
-
-  // --- FUNCIONES ORIGINALES ---
-  const alumnosFiltrados = alumnos.filter(alumno => {
-    const coincideBusqueda = alumno.nombre.toLowerCase().includes(busqueda.toLowerCase());
-    const coincideCanal = filtroCanal === 'Todos' || alumno.canal === filtroCanal;
-    return coincideBusqueda && coincideCanal;
-  });
-
-  const toggleAsistencia = (id) => {
-    setAlumnos(alumnos.map(al => al.id === id ? { ...al, asistencia: !al.asistencia } : al));
+  const updateAl = (id, fn) => {
+    const arr = alumnos.map(a => a.id === id ? fn(a) : a);
+    set('alumnos', arr);
+    if (alSel?.id === id) set('alSel', arr.find(a => a.id === id));
   };
 
-  const toggleLugar = (id) => {
-    setAlumnos(alumnos.map(al => al.id === id ? { ...al, lugar: al.lugar === 'salon' ? 'casa' : 'salon' } : al));
+  const tog = (id, k) => updateAl(id, a => ({ ...a, [k]: k === 'lugar' ? (a.lugar === 'salon' ? 'casa' : 'salon') : !a[k] }));
+
+  const modInc = (id, action, incId = null) => {
+    if (action === 'add' && !nuevoInc.detalle.trim()) return;
+    updateAl(id, a => ({
+      ...a, incidentes: action === 'add' 
+        ? [{ id: Date.now(), fecha, ...nuevoInc }, ...a.incidentes]
+        : a.incidentes.filter(i => i.id !== incId)
+    }));
+    if (action === 'add') { set('nuevoInc', { categoria: 'Conducta', detalle: '' }); set('idInc', null); }
   };
 
-  const toggleTarea = (id) => {
-    setAlumnos(alumnos.map(al => al.id === id ? { ...al, tarea: !al.tarea } : al));
-  };
-
-  const handleGuardarEnSheets = async () => {
-    setGuardado(true);
-    // URL verificada del video
-    const urlScript = 'https://script.google.com/macros/s/AKfycbwaILRlvuvI84N9iVF3swItyIoBFn3IpClSGkbrJV7g7RVzRCDmjPbIkFJK3hLSOCog/exec';
-
+  const guardarSheets = async () => {
+    set('guardado', true);
     try {
-      const params = new URLSearchParams();
-      params.append('data', JSON.stringify({ fecha, alumnos }));
-
-      await fetch(urlScript, {
-        method: 'POST',
-        mode: 'no-cors', 
-        body: params     
-      });
-      console.log("Datos enviados a Sheets exitosamente");
-    } catch (error) {
-      console.error("Error al enviar:", error);
-    }
-    setTimeout(() => setGuardado(false), 2500);
+      const params = new URLSearchParams({ data: JSON.stringify({ fecha, alumnos }) });
+      await fetch('https://script.google.com/macros/s/AKfycbwaILRlvuvI84N9iVF3swItyIoBFn3IpClSGkbrJV7g7RVzRCDmjPbIkFJK3hLSOCog/exec', 
+        { method: 'POST', mode: 'no-cors', body: params });
+    } catch (e) { console.error(e); }
+    setTimeout(() => set('guardado', false), 2500);
   };
 
-  const agregarIncidente = (id) => {
-    if (!incidenteNuevo.detalle.trim()) return;
+  // Estadísticas calculadas
+  const pres = alumnos.filter(a => a.asistencia).length;
+  const stats = [
+    { t: 'Asistencia', v: `${alumnos.length ? Math.round((pres / alumnos.length) * 100) : 0}%`, s: `(${pres}/${alumnos.length})`, I: UserCheck, c: 'text-[#00E676]', bg: 'bg-[#00E676]/10' },
+    { t: 'Inasistencias', v: alumnos.length - pres, s: 'alumnos', I: UserX, c: 'text-rose-400', bg: 'bg-rose-500/10' },
+    { t: 'Trabajo en Casa', v: alumnos.filter(a => a.asistencia && a.lugar === 'casa').length, s: 'hoy', I: Home, c: 'text-[#00E5FF]', bg: 'bg-[#00E5FF]/10' },
+    { t: 'Tareas', v: alumnos.filter(a => a.asistencia && a.tarea).length, s: 'entregadas', I: BookOpen, c: 'text-indigo-400', bg: 'bg-indigo-500/10' }
+  ];
 
-    const nuevoObj = {
-      id: Date.now(),
-      fecha: fecha,
-      categoria: incidenteNuevo.categoria,
-      detalle: incidenteNuevo.detalle
-    };
-
-    setAlumnos(alumnos.map(al => {
-      if (al.id === id) {
-        return { ...al, incidentes: [nuevoObj, ...al.incidentes] };
-      }
-      return al;
-    }));
-
-    setIncidenteNuevo({ categoria: 'Conducta', detalle: '' });
-    setIdAlumnoIncidente(null);
-
-    if (alumnoSeleccionado && alumnoSeleccionado.id === id) {
-      setAlumnoSeleccionado({
-        ...alumnoSeleccionado,
-        incidentes: [nuevoObj, ...alumnoSeleccionado.incidentes]
-      });
-    }
-  };
-
-  const eliminarIncidente = (alumnoId, incidenteId) => {
-    setAlumnos(alumnos.map(al => {
-      if (al.id === alumnoId) {
-        return { ...al, incidentes: al.incidentes.filter(inc => inc.id !== incidenteId) };
-      }
-      return al;
-    }));
-
-    if (alumnoSeleccionado && alumnoSeleccionado.id === alumnoId) {
-      setAlumnoSeleccionado({
-        ...alumnoSeleccionado,
-        incidentes: alumnoSeleccionado.incidentes.filter(inc => inc.id !== incidenteId)
-      });
-    }
-  };
-
-  const guardarPerfilPedagogico = (id, nuevoCanal, nuevoDiag) => {
-    setAlumnos(alumnos.map(al => {
-      if (al.id === id) {
-        return { ...al, canal: nuevoCanal, diagnostico: nuevoDiag };
-      }
-      return al;
-    }));
-    
-    if (alumnoSeleccionado && alumnoSeleccionado.id === id) {
-      setAlumnoSeleccionado({
-        ...alumnoSeleccionado,
-        canal: nuevoCanal,
-        diagnostico: nuevoDiag
-      });
-    }
-  };
-
-  const totalAlumnos = alumnos.length;
-  const presentes = alumnos.filter(a => a.asistencia).length;
-  const faltas = totalAlumnos - presentes;
-  const porcentajeAsistencia = totalAlumnos > 0 ? Math.round((presentes / totalAlumnos) * 100) : 0;
-  const tareasCumplidas = alumnos.filter(a => a.asistencia && a.tarea).length;
-  const trabajandoCasa = alumnos.filter(a => a.asistencia && a.lugar === 'casa').length;
-
-
-  // =======================================================================
-  // PANTALLA DE BLOQUEO (SE MUESTRA SI NO ESTÁ AUTENTICADO)
-  // =======================================================================
-  if (!estaAutenticado) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans w-full">
-        <div className="bg-white p-8 md:p-10 rounded-2xl shadow-xl max-w-md w-full text-center border border-slate-100">
-          <div className="bg-emerald-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 text-emerald-700 shadow-sm">
-            <Lock className="w-10 h-10" />
-          </div>
-          
-          <h2 className="text-2xl font-extrabold text-slate-800 mb-2 tracking-tight">Acceso Restringido</h2>
-          <p className="text-slate-500 text-sm mb-8 font-medium">Control Docente 3ro "A". Por favor, ingresa tu clave de maestro para continuar.</p>
-          
-          <form onSubmit={manejarIngreso} className="space-y-5">
-            <input
-              type="password"
-              placeholder="•••••••••"
-              value={contrasena}
-              onChange={(e) => setContrasena(e.target.value)}
-              autoFocus
-              className="w-full p-4 border border-slate-200 bg-slate-50 rounded-xl outline-none focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-50 transition-all text-center text-xl tracking-[0.3em] font-bold text-slate-700"
-            />
-            <button 
-              type="submit" 
-              className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-4 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
-            >
-              <UserCheck className="w-5 h-5" /> Desbloquear Sistema
-            </button>
+  if (!auth.auth) return (
+    <>
+      <style>{`body, html, #root { margin: 0; padding: 0; width: 100%; min-height: 100vh; background-color: #0B1221; }`}</style>
+      <div className="min-h-screen bg-[#0B1221] flex items-center justify-center p-4 w-full">
+        <div className="bg-[#151D2E] p-8 rounded-2xl shadow-2xl max-w-md w-full text-center border border-slate-800">
+          <Lock className="w-12 h-12 text-[#00E5FF] mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-white mb-1">Registro 3 A</h2>
+          <p className="text-slate-400 text-sm mb-6">Acceso Restringido</p>
+          <form onSubmit={manejarIngreso} className="space-y-4">
+            <input type="password" placeholder="Clave Docente" value={auth.pass} onChange={e => setAuth({...auth, pass: e.target.value})}
+              className="w-full p-4 bg-[#0B1221] text-center text-xl text-white rounded-xl border border-slate-700 outline-none focus:border-[#00E5FF]" autoFocus />
+            {auth.error && <p className="text-rose-400 text-xs">{auth.error}</p>}
+            <button type="submit" className="w-full bg-[#00E5FF] text-[#0B1221] font-bold py-3 rounded-xl hover:bg-[#00cce6] transition">Desbloquear</button>
           </form>
         </div>
       </div>
-    );
-  }
+    </>
+  );
 
-  // =======================================================================
-  // APLICACIÓN PRINCIPAL (SE MUESTRA SI LA CONTRASEÑA FUE CORRECTA)
-  // =======================================================================
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-24 print:bg-white print:p-0 print:pb-0 w-full">
-      
-      <style>{`
-        :root, body, #root {
-          margin: 0 !important;
-          padding: 0 !important;
-          max-width: 100% !important;
-          width: 100vw !important;
-          min-height: 100vh !important;
-          background-color: #f8fafc !important;
-        }
-      `}</style>
+    <div className="min-h-screen bg-[#0B1221] text-slate-300 pb-24 print:bg-white print:text-black font-sans w-full selection:bg-[#00E5FF] selection:text-black flex flex-col">
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap'); html, body, #root { font-family: 'Inter', sans-serif; margin: 0; padding: 0; width: 100%; min-height: 100vh; background-color: #0B1221; }`}</style>
 
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-slate-100 sticky top-0 z-30 print:hidden w-full">
-        <div className="px-4 md:px-8 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 w-full">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 bg-emerald-100 text-emerald-800 rounded-lg">
-                <Award className="w-5 h-5" />
-              </span>
-              <h1 className="text-xl font-bold text-slate-800">Control Docente 3ro "A" Profr. Aristeo Maya Corona </h1>
+      <header className="bg-[#151D2E] shadow border-b border-slate-800/80 sticky top-0 z-30 print:hidden p-4 w-full">
+        <div className="w-full px-2 md:px-6 flex flex-wrap justify-between items-center gap-4">
+          <div className="flex items-center gap-3">
+            <Award className="w-8 h-8 text-[#00E5FF] p-1.5 bg-[#00E5FF]/10 rounded-lg" />
+            <div>
+              <h1 className="text-lg font-bold text-white">CONTROL DOCENTE <span className="text-[#00E5FF]">3° "A"</span></h1>
+              <p className="text-xs text-slate-400">Profr. Aristeo Maya Corona</p>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">Optimiza tu tiempo administrativo y enfócate en educar</p>
           </div>
-
-          <div className="flex items-center gap-2">
-            <div className="flex items-center bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-              <Calendar className="w-4 h-4 text-slate-500 mr-2" />
-              <input 
-                type="date" 
-                value={fecha}
-                onChange={(e) => setFecha(e.target.value)}
-                className="bg-transparent border-none outline-none text-xs text-slate-700 font-bold w-28"
-              />
-            </div>
+          <div className="flex bg-[#0B1221] p-2 rounded-xl border border-slate-700 items-center">
+            <Calendar className="w-4 h-4 text-[#00E5FF] mx-2" />
+            <input type="date" value={fecha} onChange={e => set('fecha', e.target.value)} className="bg-transparent text-sm text-white font-bold outline-none [color-scheme:dark]" />
           </div>
         </div>
       </header>
 
-      {/* Tabs de Navegación */}
-      <div className="px-4 md:px-8 mt-4 flex gap-2 print:hidden w-full">
-        <button
-          onClick={() => setVista('registro')}
-          className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-            vista === 'registro' 
-            ? 'bg-emerald-700 text-white shadow-md' 
-            : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-          }`}
-        >
-          <BookOpenCheck className="w-4 h-4" />
-          Pase de Lista Diario
-        </button>
-        <button
-          onClick={() => setVista('reporte')}
-          className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-            vista === 'reporte' 
-            ? 'bg-emerald-700 text-white shadow-md' 
-            : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-          }`}
-        >
-          <Printer className="w-4 h-4" />
-          Vista de Impresión
-        </button>
-      </div>
+      <div className="w-full px-4 md:px-8 mt-6">
+        <div className="flex gap-2 print:hidden mb-6 max-w-xl">
+          {[{ id: 'registro', i: BookOpenCheck, t: 'Pase de Lista' }, { id: 'reporte', i: Printer, t: 'Vista Impresión' }].map(b => (
+            <button key={b.id} onClick={() => set('vista', b.id)} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition ${vista === b.id ? 'bg-[#00E5FF] text-[#0B1221]' : 'bg-[#151D2E] text-slate-400 border border-slate-700'}`}>
+              <b.i className="w-4 h-4" /> {b.t}
+            </button>
+          ))}
+        </div>
 
-      {vista === 'registro' && (
-        <section className="px-4 md:px-8 mt-4 print:hidden w-full">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="bg-white p-3 rounded-xl shadow-xs border border-slate-100 flex items-center gap-3">
-              <div className="p-2 bg-emerald-50 text-emerald-700 rounded-lg">
-                <UserCheck className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Asistencia</p>
-                <p className="text-base font-extrabold text-slate-700">{porcentajeAsistencia}% <span className="text-xs font-normal text-slate-400">({presentes}/{totalAlumnos})</span></p>
-              </div>
+        {vista === 'registro' && (
+          <div className="space-y-6 print:hidden">
+            {/* Tarjetas CRM */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {stats.map((s, i) => (
+                <div key={i} className="bg-[#151D2E] p-4 rounded-2xl shadow-lg border border-slate-800 flex items-center gap-4">
+                  <s.I className={`w-10 h-10 p-2 rounded-xl ${s.bg} ${s.c}`} />
+                  <div><p className="text-[10px] uppercase text-slate-400 font-bold">{s.t}</p><p className={`text-xl font-bold ${s.c === 'text-indigo-400' ? 'text-white' : s.c}`}>{s.v} <span className="text-xs text-slate-500">{s.s}</span></p></div>
+                </div>
+              ))}
             </div>
 
-            <div className="bg-white p-3 rounded-xl shadow-xs border border-slate-100 flex items-center gap-3">
-              <div className="p-2 bg-rose-50 text-rose-600 rounded-lg">
-                <UserX className="w-5 h-5" />
+            {/* Buscador */}
+            <div className="bg-[#151D2E] p-4 rounded-2xl border border-slate-800 flex flex-wrap gap-4 items-center">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                <input type="text" placeholder="Buscar..." value={busqueda} onChange={e => set('busqueda', e.target.value)} className="w-full pl-9 p-2 bg-[#0B1221] text-sm text-white rounded-lg border border-slate-700 outline-none focus:border-[#00E5FF]" />
               </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Inasistencias</p>
-                <p className="text-base font-extrabold text-slate-700">{faltas} <span className="text-xs font-normal text-slate-400">alumnos</span></p>
-              </div>
-            </div>
-
-            <div className="bg-white p-3 rounded-xl shadow-xs border border-slate-100 flex items-center gap-3">
-              <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                <Home className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Trabajo en Casa</p>
-                <p className="text-base font-extrabold text-slate-700">{trabajandoCasa} <span className="text-xs font-normal text-slate-400">hoy</span></p>
-              </div>
-            </div>
-
-            <div className="bg-white p-3 rounded-xl shadow-xs border border-slate-100 flex items-center gap-3">
-              <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
-                <BookOpen className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Tareas Entregadas</p>
-                <p className="text-base font-extrabold text-slate-700">{tareasCumplidas} <span className="text-xs font-normal text-slate-400">alumnos</span></p>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {vista === 'registro' && (
-        <main className="px-4 md:px-8 mt-4 space-y-4 print:hidden w-full">
-          
-          <div className="bg-white p-3 rounded-xl shadow-xs border border-slate-100 flex flex-col md:flex-row gap-2 justify-between">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-              <input 
-                type="text" 
-                placeholder="Buscar alumno rápido..." 
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-emerald-500 focus:bg-white transition-all"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400 font-bold uppercase whitespace-nowrap">Estilo Aprendizaje:</span>
-              <select
-                value={filtroCanal}
-                onChange={(e) => setFiltroCanal(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold p-2 text-slate-700 outline-none"
-              >
-                <option value="Todos">Todos</option>
-                <option value="Visual">Visual</option>
-                <option value="Auditivo">Auditivo</option>
-                <option value="Kinestésico">Kinestésico</option>
+              <select value={filtro} onChange={e => set('filtro', e.target.value)} className="p-2 bg-[#0B1221] text-sm text-white border border-slate-700 rounded-lg outline-none">
+                {['Todos', 'Visual', 'Auditivo', 'Kinestésico'].map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
-            {alumnosFiltrados.length > 0 ? (
-              alumnosFiltrados.map((alumno) => (
-                <div 
-                  key={alumno.id}
-                  className={`bg-white rounded-xl p-4 shadow-sm border transition-all flex flex-col gap-3 h-full ${
-                    alumno.asistencia 
-                    ? 'border-slate-100 hover:border-emerald-200' 
-                    : 'border-rose-100 bg-rose-50/20'
-                  }`}
-                >
-                  <div className="flex justify-between items-start gap-2">
-                    <div className="flex-1 min-w-0">
-                      <h2 className="text-sm md:text-[15px] font-bold text-slate-800 leading-tight break-words mb-1">
-                        {alumno.nombre}
-                      </h2>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className={`px-2 py-0.5 text-[9px] font-extrabold rounded-full uppercase tracking-wider ${
-                          alumno.canal === 'Visual' ? 'bg-blue-100 text-blue-700' :
-                          alumno.canal === 'Auditivo' ? 'bg-purple-100 text-purple-700' :
-                          'bg-amber-100 text-amber-800'
-                        }`}>
-                          {alumno.canal}
-                        </span>
-                        <p className="text-[10px] text-slate-400 font-semibold">Número de lista: {alumno.id}</p>
-                      </div>
+            {/* Grid de Alumnos (Fluido a pantalla completa) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6 gap-4">
+              {alumnosFiltrados.map(a => (
+                <div key={a.id} className={`bg-[#151D2E] p-4 rounded-2xl border flex flex-col gap-3 ${a.asistencia ? 'border-slate-800' : 'border-rose-900/40 bg-rose-950/10'}`}>
+                  <div className="flex justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold text-white leading-tight">{a.nombre}</h3>
+                      <p className="text-[10px] text-slate-400 mt-1">N.L: {a.id} • <span className="uppercase text-[#00E5FF]">{a.canal}</span></p>
                     </div>
+                    <button onClick={() => set('alSel', a)} className="p-2 bg-[#0B1221] rounded-lg text-slate-400 hover:text-[#00E5FF] shrink-0 border border-slate-800 h-fit"><User className="w-4 h-4" /></button>
+                  </div>
 
-                    <button 
-                      onClick={() => setAlumnoSeleccionado(alumno)}
-                      className="p-1.5 bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors shrink-0"
-                      title="Ver Perfil e Incidentes"
-                    >
-                      <User className="w-4 h-4" />
+                  <div className="grid grid-cols-3 gap-2">
+                    <button onClick={() => tog(a.id, 'asistencia')} className={`p-2 rounded-lg border text-[10px] font-bold flex flex-col items-center ${a.asistencia ? 'bg-[#00E676]/10 text-[#00E676] border-[#00E676]/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
+                      {a.asistencia ? <UserCheck className="w-4 h-4 mb-1" /> : <UserX className="w-4 h-4 mb-1" />} {a.asistencia ? 'PRESENTE' : 'FALTÓ'}
+                    </button>
+                    <button onClick={() => tog(a.id, 'lugar')} disabled={!a.asistencia} className={`p-2 rounded-lg border text-[10px] font-bold flex flex-col items-center ${!a.asistencia ? 'opacity-30 border-slate-800 bg-[#0B1221]' : a.lugar === 'salon' ? 'bg-[#00E5FF]/10 text-[#00E5FF] border-[#00E5FF]/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
+                      {a.lugar === 'salon' ? <School className="w-4 h-4 mb-1" /> : <Home className="w-4 h-4 mb-1" />} {a.lugar === 'salon' ? 'SALÓN' : 'CASA'}
+                    </button>
+                    <button onClick={() => tog(a.id, 'tarea')} disabled={!a.asistencia} className={`p-2 rounded-lg border text-[10px] font-bold flex flex-col items-center ${!a.asistencia ? 'opacity-30 border-slate-800 bg-[#0B1221]' : a.tarea ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-[#0B1221] text-slate-400 border-slate-700'}`}>
+                      <BookOpen className="w-4 h-4 mb-1" /> {a.tarea ? 'CUMPLIÓ' : 'PENDIENTE'}
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 mt-auto pt-2">
-                    <button 
-                      onClick={() => toggleAsistencia(alumno.id)}
-                      className={`flex flex-col items-center justify-center p-2 rounded-lg border transition-all ${
-                        alumno.asistencia 
-                        ? 'bg-emerald-50/70 text-emerald-700 border-emerald-100 hover:bg-emerald-100/50' 
-                        : 'bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100/50'
-                      }`}
-                    >
-                      {alumno.asistencia ? <UserCheck className="w-4 h-4 mb-1" /> : <UserX className="w-4 h-4 mb-1" />}
-                      <span className="text-[10px] font-bold">{alumno.asistencia ? 'Presente' : 'Faltó'}</span>
-                    </button>
-
-                    <button 
-                      onClick={() => toggleLugar(alumno.id)}
-                      disabled={!alumno.asistencia}
-                      className={`flex flex-col items-center justify-center p-2 rounded-lg border transition-all ${
-                        !alumno.asistencia 
-                        ? 'opacity-40 cursor-not-allowed bg-slate-50 border-slate-100 text-slate-400' 
-                        : alumno.lugar === 'salon'
-                        ? 'bg-blue-50/70 text-blue-600 border-blue-100 hover:bg-blue-100/50'
-                        : 'bg-amber-50/70 text-amber-700 border-amber-100 hover:bg-amber-100/50'
-                      }`}
-                    >
-                      {alumno.lugar === 'salon' ? <School className="w-4 h-4 mb-1" /> : <Home className="w-4 h-4 mb-1" />}
-                      <span className="text-[10px] font-bold">{alumno.lugar === 'salon' ? 'Salón' : 'Casa'}</span>
-                    </button>
-
-                    <button 
-                      onClick={() => toggleTarea(alumno.id)}
-                      disabled={!alumno.asistencia}
-                      className={`flex flex-col items-center justify-center p-2 rounded-lg border transition-all ${
-                        !alumno.asistencia 
-                        ? 'opacity-40 cursor-not-allowed bg-slate-50 border-slate-100 text-slate-400' 
-                        : alumno.tarea
-                        ? 'bg-indigo-50/70 text-indigo-700 border-indigo-100 hover:bg-indigo-100/50'
-                        : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200/50'
-                      }`}
-                    >
-                      <BookOpen className="w-4 h-4 mb-1" />
-                      <span className="text-[10px] font-bold">{alumno.tarea ? 'Cumplió' : 'Pendiente'}</span>
-                    </button>
-                  </div>
-
-                  <div className="border-t border-slate-100 pt-2.5">
-                    {idAlumnoIncidente === alumno.id ? (
-                      <div className="space-y-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                        <div className="flex gap-2">
-                          <select
-                            value={incidenteNuevo.categoria}
-                            onChange={(e) => setIncidenteNuevo({ ...incidenteNuevo, categoria: e.target.value })}
-                            className="text-xs p-1 bg-white border border-slate-200 rounded-md font-bold text-slate-600 outline-none flex-1"
-                          >
-                            <option value="Conducta">Conducta</option>
-                            <option value="Académico">Académico</option>
-                            <option value="Emocional">Emocional</option>
-                            <option value="Salud">Salud</option>
-                            <option value="Cumplimiento">Cumplimiento</option>
-                          </select>
-                          <button 
-                            onClick={() => setIdAlumnoIncidente(null)}
-                            className="text-slate-400 hover:text-slate-600 shrink-0"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                        <textarea
-                          placeholder="Describe brevemente el incidente..."
-                          value={incidenteNuevo.detalle}
-                          onChange={(e) => setIncidenteNuevo({ ...incidenteNuevo, detalle: e.target.value })}
-                          className="w-full text-xs p-2 bg-white border border-slate-200 rounded-md outline-none focus:border-emerald-500 resize-none h-14"
-                        />
-                        <button 
-                          onClick={() => agregarIncidente(alumno.id)}
-                          className="w-full bg-emerald-700 hover:bg-emerald-800 text-white text-xs py-1.5 rounded-md font-bold flex items-center justify-center gap-1.5"
-                        >
-                          <Plus className="w-3.5 h-3.5" /> Guardar Incidente
-                        </button>
+                  <div className="border-t border-slate-800 pt-2">
+                    {idInc === a.id ? (
+                      <div className="flex gap-2">
+                        <select value={nuevoInc.categoria} onChange={e => set('nuevoInc', {...nuevoInc, categoria: e.target.value})} className="text-xs p-1.5 bg-[#0B1221] border border-slate-700 rounded text-white outline-none">
+                          {['Conducta', 'Académico', 'Salud'].map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <input type="text" placeholder="Nota..." value={nuevoInc.detalle} onChange={e => set('nuevoInc', {...nuevoInc, detalle: e.target.value})} className="flex-1 text-xs p-1.5 bg-[#0B1221] border border-slate-700 rounded text-white outline-none" />
+                        <button onClick={() => modInc(a.id, 'add')} className="bg-[#00E5FF] text-black px-2 rounded font-bold"><Plus className="w-4 h-4" /></button>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-between">
-                        <button 
-                          onClick={() => setIdAlumnoIncidente(alumno.id)}
-                          className="text-xs text-slate-500 hover:text-emerald-700 flex items-center gap-1 font-semibold"
-                        >
-                          <Plus className="w-3.5 h-3.5" /> Agregar Notas/Incidente
-                        </button>
-
-                        {alumno.incidentes.length > 0 && (
-                          <span className="flex items-center gap-1 text-[10px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md font-bold border border-amber-100">
-                            <AlertCircle className="w-3 h-3" />
-                            {alumno.incidentes.length} Registrado(s)
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {alumno.incidentes.length > 0 && idAlumnoIncidente !== alumno.id && (
-                      <div className="mt-2 space-y-1">
-                        {alumno.incidentes.slice(0, 1).map((inc) => (
-                          <div key={inc.id} className="text-xs bg-slate-50/70 p-1.5 rounded border border-slate-100 flex items-start justify-between gap-2">
-                            <span className="text-[9px] font-extrabold bg-amber-100 text-amber-800 px-1 py-0.2 rounded uppercase shrink-0">
-                              {inc.categoria}
-                            </span>
-                            <p className="flex-1 text-slate-600 truncate text-[11px]">{inc.detalle}</p>
-                            <span className="text-[9px] text-slate-400 whitespace-nowrap shrink-0">{inc.fecha}</span>
-                          </div>
-                        ))}
-                      </div>
+                      <button onClick={() => set('idInc', a.id)} className="text-[10px] text-[#00E5FF] flex items-center gap-1 font-bold"><Plus className="w-3 h-3" /> Agregar Nota {a.incidentes.length > 0 && <span className="text-amber-400 ml-2">({a.incidentes.length})</span>}</button>
                     )}
                   </div>
                 </div>
-              ))
-            ) : (
-              <div className="col-span-full bg-white rounded-xl p-8 text-center border border-slate-200">
-                <p className="text-slate-500 font-medium">No se encontraron alumnos con los criterios seleccionados.</p>
-              </div>
-            )}
+              ))}
+            </div>
           </div>
-        </main>
-      )}
+        )}
 
-      {alumnoSeleccionado && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 print:hidden">
-          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-100 flex flex-col">
-            
-            <header className="p-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
-              <div className="flex items-center gap-2">
-                <span className="p-2 bg-emerald-50 text-emerald-800 rounded-xl">
-                  <User className="w-5 h-5" />
-                </span>
-                <div>
-                  <h3 className="text-base font-bold text-slate-800">Ficha Técnica del Alumno</h3>
-                  <p className="text-[10px] text-slate-400 font-semibold">Perfil e Historial</p>
-                </div>
+        {/* Modal de Alumno (Comprimido) */}
+        {alSel && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50 print:hidden">
+            <div className="bg-[#151D2E] rounded-2xl w-full max-w-md border border-slate-700 p-5 space-y-4">
+              <div className="flex justify-between items-start border-b border-slate-800 pb-3">
+                <div><h3 className="text-white font-bold">{alSel.nombre}</h3><p className="text-xs text-slate-400">Ficha Técnica</p></div>
+                <button onClick={() => set('alSel', null)} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
               </div>
-              <button 
-                onClick={() => setAlumnoSeleccionado(null)}
-                className="p-1 text-slate-400 hover:text-slate-700 bg-slate-50 rounded-full"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label className="text-slate-500 font-bold block mb-1">Canal:</label>
+                  <select value={alSel.canal} onChange={e => updateAl(alSel.id, a => ({...a, canal: e.target.value}))} className="w-full p-2 bg-[#0B1221] border border-slate-700 rounded text-white outline-none">
+                    {['Visual', 'Auditivo', 'Kinestésico'].map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div><label className="text-slate-500 font-bold block mb-1">Diagnóstico:</label><textarea value={alSel.diagnostico} onChange={e => updateAl(alSel.id, a => ({...a, diagnostico: e.target.value}))} className="w-full p-2 bg-[#0B1221] border border-slate-700 rounded text-white h-10 resize-none outline-none" /></div>
+              </div>
+              <div className="space-y-2 max-h-40 overflow-auto">
+                <h4 className="text-xs font-bold text-white border-b border-slate-800 pb-1">Bitácora ({alSel.incidentes.length})</h4>
+                {alSel.incidentes.map(i => (
+                  <div key={i.id} className="text-xs bg-[#0B1221] p-2 rounded flex justify-between items-start gap-2 border border-slate-800">
+                    <div><span className="text-amber-400 font-bold mr-2">{i.categoria}</span><span className="text-slate-500">{i.fecha}</span><p className="text-slate-300 mt-1">{i.detalle}</p></div>
+                    <button onClick={() => modInc(alSel.id, 'del', i.id)} className="text-slate-500 hover:text-rose-500"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {vista === 'reporte' && (
+          <div className="bg-white print:p-0 p-8 rounded-xl text-black">
+            <header className="border-b-2 border-black pb-4 mb-4 flex justify-between items-end">
+              <div><h1 className="text-lg font-bold uppercase">Reporte Control Docente</h1><p className="text-xs font-bold">3° "A" • Profr. Aristeo Maya Corona</p></div>
+              <p className="text-xs font-bold">FECHA: {fecha}</p>
             </header>
-
-            <div className="p-5 space-y-4 flex-1">
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
-                <div>
-                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Nombre del Alumno</label>
-                  <p className="text-base font-extrabold text-slate-800">{alumnoSeleccionado.nombre}</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Canal de Entrada</label>
-                    <select
-                      value={alumnoSeleccionado.canal}
-                      onChange={(e) => guardarPerfilPedagogico(alumnoSeleccionado.id, e.target.value, alumnoSeleccionado.diagnostico)}
-                      className="w-full mt-1 p-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 outline-none"
-                    >
-                      <option value="Visual">Visual</option>
-                      <option value="Auditivo">Auditivo</option>
-                      <option value="Kinestésico">Kinestésico</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Lugar Predilecto</label>
-                    <p className="text-xs font-bold text-slate-700 mt-2 flex items-center gap-1 capitalize">
-                      {alumnoSeleccionado.lugar === 'salon' ? <School className="w-4 h-4 text-blue-500" /> : <Home className="w-4 h-4 text-amber-500" />}
-                      {alumnoSeleccionado.lugar === 'salon' ? 'Salón de Clase' : 'Trabajo en Casa'}
-                    </p>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Notas de Diagnóstico del Maestro</label>
-                  <textarea
-                    value={alumnoSeleccionado.diagnostico}
-                    onChange={(e) => guardarPerfilPedagogico(alumnoSeleccionado.id, alumnoSeleccionado.canal, e.target.value)}
-                    className="w-full mt-1 p-2 text-xs bg-white border border-slate-200 rounded-lg outline-none focus:border-emerald-500 resize-none h-16 text-slate-600 leading-relaxed font-medium"
-                    placeholder="Escribe anotaciones de conducta, estilo preferido de aprendizaje..."
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                  <FileText className="w-4 h-4 text-slate-500" />
-                  Bitácora de Notas y Eventos ({alumnoSeleccionado.incidentes.length})
-                </h4>
-
-                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                  {alumnoSeleccionado.incidentes.length > 0 ? (
-                    alumnoSeleccionado.incidentes.map((inc) => (
-                      <div key={inc.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 space-y-1 flex items-start justify-between gap-3">
-                        <div className="space-y-1 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[9px] font-extrabold bg-amber-100 text-amber-800 px-1.5 rounded uppercase">
-                              {inc.categoria}
-                            </span>
-                            <span className="text-[9px] text-slate-400 font-bold">{inc.fecha}</span>
-                          </div>
-                          <p className="text-xs text-slate-600 leading-relaxed font-medium">{inc.detalle}</p>
-                        </div>
-                        <button 
-                          onClick={() => eliminarIncidente(alumnoSeleccionado.id, inc.id)}
-                          className="text-slate-400 hover:text-rose-600 p-0.5 rounded transition-all"
-                          title="Eliminar registro"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-4 bg-slate-50 rounded-lg text-xs text-slate-400 font-medium">
-                      Este alumno no cuenta con incidentes registrados.
-                    </div>
-                  )}
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </div>
-      )}
-
-      {vista === 'reporte' && (
-        <main className="px-4 md:px-8 mt-6 space-y-6 w-full max-w-[1000px] mx-auto">
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-3 print:hidden">
-            <h3 className="text-base font-bold text-slate-700 flex items-center gap-2">
-              <Printer className="w-5 h-5 text-emerald-700" />
-              Generador de Documentos e Impresión
-            </h3>
-            <p className="text-xs text-slate-500 leading-relaxed font-medium">
-              Esta sección genera reportes limpios, sin colores pesados y optimizados para hojas tamaño carta. Al presionar el botón <strong>Imprimir Reporte</strong>, la interfaz adaptará los márgenes automáticamente.
-            </p>
-            <div className="flex flex-wrap gap-2 pt-1">
-              <button
-                onClick={() => window.print()}
-                className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-sm transition-all"
-              >
-                <Printer className="w-4 h-4" /> Imprimir Hoja Actual
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-white p-8 rounded-xl shadow-xs border border-slate-200 print:border-none print:shadow-none print:p-0">
-            <header className="border-b-2 border-slate-800 pb-4 flex justify-between items-start">
-              <div>
-                <h1 className="text-lg font-bold text-slate-900 uppercase tracking-wide">Reporte de Grupo Docente</h1>
-                <p className="text-xs font-bold text-slate-700">Tercer Grado de Primaria • Grupo "A"</p>
-                <p className="text-[10px] text-slate-500 font-medium">Registro Auxiliar de Evaluación Continua</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-extrabold text-slate-700">FECHA: {fecha}</p>
-              </div>
-            </header>
-
-            <div className="grid grid-cols-3 gap-4 py-3 text-xs border-b border-slate-200 bg-slate-50/50 p-2 my-4 print:bg-slate-100">
-              <div>
-                <span className="font-extrabold text-slate-700 uppercase block text-[9px]">Porcentaje Asistencia</span>
-                <p className="text-sm font-bold text-slate-800">{porcentajeAsistencia}% ({presentes}/{totalAlumnos})</p>
-              </div>
-              <div>
-                <span className="font-extrabold text-slate-700 uppercase block text-[9px]">Trabajo en Casa</span>
-                <p className="text-sm font-bold text-slate-800">{trabajandoCasa} Alumnos</p>
-              </div>
-              <div>
-                <span className="font-extrabold text-slate-700 uppercase block text-[9px]">Tareas Entregadas</span>
-                <p className="text-sm font-bold text-slate-800">{tareasCumplidas} Alumnos</p>
-              </div>
-            </div>
-
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider mb-2">I. Control Diario (Asistencia y Cumplimiento)</h3>
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-800 bg-slate-100 text-slate-700 print:bg-slate-200">
-                      <th className="p-2 font-extrabold">N.L.</th>
-                      <th className="p-2 font-extrabold">Nombre del Alumno</th>
-                      <th className="p-2 font-extrabold text-center">Asistencia</th>
-                      <th className="p-2 font-extrabold text-center">Ubicación</th>
-                      <th className="p-2 font-extrabold text-center">Tarea</th>
-                      <th className="p-2 font-extrabold">Canal</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {alumnos.map((al) => (
-                      <tr key={al.id} className="border-b border-slate-200 hover:bg-slate-50/50">
-                        <td className="p-2 font-bold text-slate-500">{al.id}</td>
-                        <td className="p-2 font-extrabold text-slate-800">{al.nombre}</td>
-                        <td className="p-2 text-center">
-                          <span className={`px-2 py-0.5 text-[9px] font-bold rounded-md ${al.asistencia ? 'bg-slate-100 text-slate-800' : 'bg-slate-300 text-slate-900 font-extrabold'}`}>
-                            {al.asistencia ? 'PRESENTE' : 'FALTÓ'}
-                          </span>
-                        </td>
-                        <td className="p-2 text-center font-bold text-slate-600 capitalize">
-                          {al.asistencia ? al.lugar : 'N/A'}
-                        </td>
-                        <td className="p-2 text-center">
-                          <span className="font-bold">
-                            {al.asistencia ? (al.tarea ? 'CUMPLIÓ' : 'PENDIENTE') : 'FALTA'}
-                          </span>
-                        </td>
-                        <td className="p-2 font-bold text-slate-600 uppercase tracking-wider text-[10px]">{al.canal}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="page-break-before">
-                <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider mb-2">II. Bitácora de Observaciones</h3>
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-800 bg-slate-100 text-slate-700 print:bg-slate-200">
-                      <th className="p-2 font-extrabold w-1/4">Alumno</th>
-                      <th className="p-2 font-extrabold w-1/6">Fecha</th>
-                      <th className="p-2 font-extrabold w-1/6">Categoría</th>
-                      <th className="p-2 font-extrabold">Descripción</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {alumnos.some(a => a.incidentes.length > 0) ? (
-                      alumnos.flatMap(a => a.incidentes.map(inc => ({ nombre: a.nombre, ...inc }))).map((item) => (
-                        <tr key={item.id} className="border-b border-slate-200">
-                          <td className="p-2 font-extrabold text-slate-800">{item.nombre}</td>
-                          <td className="p-2 text-slate-600 font-semibold">{item.fecha}</td>
-                          <td className="p-2 font-bold uppercase text-[10px]">{item.categoria}</td>
-                          <td className="p-2 text-slate-600 leading-relaxed italic">"{item.detalle}"</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="4" className="p-4 text-center text-slate-400 font-semibold italic">
-                          No hay observaciones para esta fecha.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <footer className="mt-16 pt-8 border-t border-slate-200 flex justify-between items-center text-xs text-slate-400 font-semibold">
-              <div className="text-center w-48">
-                <div className="border-t border-slate-500 pt-1 w-full text-slate-600 uppercase font-bold">Firma Docente</div>
-                <p className="text-[10px]">profr. Aristeo Maya Corona</p>
-              </div>
-              <div className="text-center w-48">
-                <div className="border-t border-slate-500 pt-1 w-full text-slate-600 uppercase font-bold">Vo. Bo. Dirección</div>
-                <p className="text-[10px]">Profa. Rosa María Reynoso Gómez</p>
-              </div>
+            <table className="w-full text-left text-[11px] border-collapse">
+              <thead><tr className="border-b-2 border-black bg-slate-200"><th className="p-2">N.L.</th><th className="p-2">Nombre</th><th className="p-2">Asist.</th><th className="p-2">Lugar</th><th className="p-2">Tarea</th><th className="p-2">Canal</th></tr></thead>
+              <tbody>{alumnos.map(a => (
+                <tr key={a.id} className="border-b border-slate-300"><td className="p-2 font-bold">{a.id}</td><td className="p-2">{a.nombre}</td><td className="p-2 font-bold">{a.asistencia ? 'PRESENTE' : 'FALTÓ'}</td><td className="p-2 capitalize">{a.asistencia ? a.lugar : '-'}</td><td className="p-2 font-bold">{a.asistencia ? (a.tarea ? 'CUMPLIÓ' : 'PENDIENTE') : '-'}</td><td className="p-2 uppercase">{a.canal}</td></tr>
+              ))}</tbody>
+            </table>
+            <footer className="mt-16 pt-4 border-t border-black flex justify-between text-[10px] font-bold text-center">
+              <div className="w-40 border-t border-black pt-1">Firma Docente</div><div className="w-40 border-t border-black pt-1">Vo. Bo. Dirección</div>
             </footer>
           </div>
-        </main>
-      )}
-
-      {/* Footer - Botón de guardado */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-slate-200 shadow-lg z-30 print:hidden w-full">
-        <div className="px-4 md:px-8 flex items-center justify-between gap-3 w-full">
-          <div className="hidden md:block text-xs text-slate-400 font-bold">
-            Estatus: <span className="text-emerald-700">Listo para Sincronizar en Tiempo Real</span>
-          </div>
-          
-          <button 
-            onClick={handleGuardarEnSheets}
-            disabled={guardado}
-            className={`flex-1 md:flex-initial py-3 px-8 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
-              guardado 
-              ? 'bg-emerald-600 text-white' 
-              : 'bg-emerald-700 text-white hover:bg-emerald-800 hover:-translate-y-0.5 shadow-md hover:shadow-lg'
-            }`}
-          >
-            {guardado ? (
-              <>
-                <CheckCircle2 className="w-5 h-5 animate-bounce" />
-                ¡Guardado Exitosamente!
-              </>
-            ) : (
-              <>
-                <Save className="w-5 h-5" />
-                Guardar Día de Clase
-              </>
-            )}
-          </button>
-        </div>
+        )}
       </div>
 
+      <div className="fixed bottom-0 left-0 right-0 p-3 bg-[#0B1221]/95 border-t border-slate-800 z-30 print:hidden flex justify-center w-full">
+        <button onClick={guardarSheets} disabled={guardado} className={`w-full max-w-lg py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-sm transition-colors ${guardado ? 'bg-[#00E676] text-black' : 'bg-[#00E676] text-black hover:bg-[#00c766]'}`}>
+          {guardado ? <><CheckCircle2 className="w-5 h-5" /> ¡GUARDADO EN SHEETS!</> : <><Save className="w-5 h-5" /> GUARDAR EN GOOGLE SHEETS</>}
+        </button>
+      </div>
     </div>
   );
 }
