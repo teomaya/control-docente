@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Calendar, UserCheck, UserX, Home, School, BookOpen, Save, CheckCircle2, 
   Printer, Search, BookOpenCheck, AlertCircle, Plus, Trash2, X, FileText, Award, User,
@@ -31,6 +31,18 @@ const alumnosIniciales = [
   { id: 23, nombre: 'Orozco Lopez Jose De Jesus', asistencia: true, lugar: 'salon', tarea: true, canal: 'Visual', diagnostico: 'Requiere indicaciones visuales claras en el pizarrón.', incidentes: [] }
 ];
 
+const opcionesFaltasForm = [
+  "Falta de respeto a la autoridad docente",
+  "Falta de respeto a compañeros (burlas, apodos, agresiones verbales)",
+  "Agresión física (empujones, golpes, juegos bruscos)",
+  "Uso de lenguaje inapropiado o groserías",
+  "Interrupción constante del trabajo escolar",
+  "Daño deliberado al mobiliario o material escolar",
+  "Incumplimiento reiterado de tareas o material"
+];
+
+const CONTRASENA_CORRECTA = 'Profe2026'; 
+
 export default function App() {
   // Autenticación
   const [estaAutenticado, setEstaAutenticado] = useState(false);
@@ -42,7 +54,7 @@ export default function App() {
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
   const [busqueda, setBusqueda] = useState('');
   const [filtroCanal, setFiltroCanal] = useState('Todos');
-  const [vista, setVista] = useState('registro'); // 'registro', 'reporte', 'formal'
+  const [vista, setVista] = useState('registro'); 
   const [guardado, setGuardado] = useState(false);
   
   // Modales e Incidentes rápidos
@@ -63,16 +75,14 @@ export default function App() {
     if (historialGuardado) {
       setAlumnos(JSON.parse(historialGuardado));
     } else {
-      // Si no hay datos, limpia las asistencias pero respeta perfiles
       setAlumnos(prev => prev.map(al => ({
         ...al, asistencia: true, lugar: 'salon', tarea: true, incidentes: []
       })));
     }
   }, [fecha]);
 
-  const CONTRASENA_CORRECTA = 'Profe2026'; 
-
-  const manejarIngreso = (e) => {
+  // Manejo de Ingreso
+  const manejarIngreso = useCallback((e) => {
     e.preventDefault();
     if (contrasena === CONTRASENA_CORRECTA) {
       setEstaAutenticado(true);
@@ -80,102 +90,108 @@ export default function App() {
       setErrorLogin('Contraseña incorrecta. Intenta de nuevo.');
       setContrasena(''); 
     }
-  };
+  }, [contrasena]);
 
-  const alumnosFiltrados = alumnos.filter(alumno => {
-    const coincideBusqueda = alumno.nombre.toLowerCase().includes(busqueda.toLowerCase());
-    const coincideCanal = filtroCanal === 'Todos' || alumno.canal === filtroCanal;
-    return coincideBusqueda && coincideCanal;
-  });
+  // Filtros optimizados con useMemo para no recalcular en cada render
+  const alumnosFiltrados = useMemo(() => {
+    const busquedaLower = busqueda.toLowerCase();
+    return alumnos.filter(alumno => 
+      (filtroCanal === 'Todos' || alumno.canal === filtroCanal) &&
+      (busquedaLower === '' || alumno.nombre.toLowerCase().includes(busquedaLower))
+    );
+  }, [alumnos, busqueda, filtroCanal]);
 
-  const toggleAsistencia = (id) => {
-    setAlumnos(alumnos.map(al => al.id === id ? { ...al, asistencia: !al.asistencia } : al));
-  };
-  const toggleLugar = (id) => {
-    setAlumnos(alumnos.map(al => al.id === id ? { ...al, lugar: al.lugar === 'salon' ? 'casa' : 'salon' } : al));
-  };
-  const toggleTarea = (id) => {
-    setAlumnos(alumnos.map(al => al.id === id ? { ...al, tarea: !al.tarea } : al));
-  };
+  // Funciones de actualización optimizadas con useCallback y actualización funcional
+  const toggleAsistencia = useCallback((id) => {
+    setAlumnos(prev => prev.map(al => al.id === id ? { ...al, asistencia: !al.asistencia } : al));
+  }, []);
 
-  const handleGuardarEnSheets = async () => {
-    setGuardado(true);
-    
-    // 1. Guardar en Historial Local (Navegador)
-    localStorage.setItem(`historial_3a_${fecha}`, JSON.stringify(alumnos));
+  const toggleLugar = useCallback((id) => {
+    setAlumnos(prev => prev.map(al => al.id === id ? { ...al, lugar: al.lugar === 'salon' ? 'casa' : 'salon' } : al));
+  }, []);
 
-    // 2. Guardar en Google Sheets
-    const urlScript = 'https://script.google.com/macros/s/AKfycbwaILRlvuvI84N9iVF3swItyIoBFn3IpClSGkbrJV7g7RVzRCDmjPbIkFJK3hLSOCog/exec';
-    try {
-      const params = new URLSearchParams();
-      params.append('data', JSON.stringify({ fecha, alumnos }));
+  const toggleTarea = useCallback((id) => {
+    setAlumnos(prev => prev.map(al => al.id === id ? { ...al, tarea: !al.tarea } : al));
+  }, []);
 
-      await fetch(urlScript, {
-        method: 'POST',
-        mode: 'no-cors', 
-        body: params     
-      });
-      console.log("Datos enviados a Sheets exitosamente");
-    } catch (error) {
-      console.error("Error al enviar a Sheets:", error);
-    }
-    
-    setTimeout(() => setGuardado(false), 2500);
-  };
-
-  const agregarIncidente = (id) => {
+  const agregarIncidente = useCallback((id) => {
     if (!incidenteNuevo.detalle.trim()) return;
     const nuevoObj = {
       id: Date.now(), fecha: fecha, categoria: incidenteNuevo.categoria, detalle: incidenteNuevo.detalle
     };
-    setAlumnos(alumnos.map(al => al.id === id ? { ...al, incidentes: [nuevoObj, ...al.incidentes] } : al));
+    
+    setAlumnos(prev => prev.map(al => al.id === id ? { ...al, incidentes: [nuevoObj, ...al.incidentes] } : al));
     setIncidenteNuevo({ categoria: 'Conducta', detalle: '' });
     setIdAlumnoIncidente(null);
-    if (alumnoSeleccionado && alumnoSeleccionado.id === id) {
-      setAlumnoSeleccionado({ ...alumnoSeleccionado, incidentes: [nuevoObj, ...alumnoSeleccionado.incidentes] });
-    }
-  };
+    
+    setAlumnoSeleccionado(prev => prev && prev.id === id ? { ...prev, incidentes: [nuevoObj, ...prev.incidentes] } : prev);
+  }, [incidenteNuevo, fecha]);
 
-  const eliminarIncidente = (alumnoId, incidenteId) => {
-    setAlumnos(alumnos.map(al => al.id === alumnoId ? { ...al, incidentes: al.incidentes.filter(inc => inc.id !== incidenteId) } : al));
-    if (alumnoSeleccionado && alumnoSeleccionado.id === alumnoId) {
-      setAlumnoSeleccionado({ ...alumnoSeleccionado, incidentes: alumnoSeleccionado.incidentes.filter(inc => inc.id !== incidenteId) });
-    }
-  };
+  const eliminarIncidente = useCallback((alumnoId, incidenteId) => {
+    setAlumnos(prev => prev.map(al => al.id === alumnoId ? { ...al, incidentes: al.incidentes.filter(inc => inc.id !== incidenteId) } : al));
+    setAlumnoSeleccionado(prev => prev && prev.id === alumnoId ? { ...prev, incidentes: prev.incidentes.filter(inc => inc.id !== incidenteId) } : prev);
+  }, []);
 
-  const guardarPerfilPedagogico = (id, nuevoCanal, nuevoDiag) => {
-    setAlumnos(alumnos.map(al => al.id === id ? { ...al, canal: nuevoCanal, diagnostico: nuevoDiag } : al));
-    if (alumnoSeleccionado && alumnoSeleccionado.id === id) {
-      setAlumnoSeleccionado({ ...alumnoSeleccionado, canal: nuevoCanal, diagnostico: nuevoDiag });
-    }
-  };
+  const guardarPerfilPedagogico = useCallback((id, nuevoCanal, nuevoDiag) => {
+    setAlumnos(prev => prev.map(al => al.id === id ? { ...al, canal: nuevoCanal, diagnostico: nuevoDiag } : al));
+    setAlumnoSeleccionado(prev => prev && prev.id === id ? { ...prev, canal: nuevoCanal, diagnostico: nuevoDiag } : prev);
+  }, []);
 
-  const opcionesFaltasForm = [
-    "Falta de respeto a la autoridad docente",
-    "Falta de respeto a compañeros (burlas, apodos, agresiones verbales)",
-    "Agresión física (empujones, golpes, juegos bruscos)",
-    "Uso de lenguaje inapropiado o groserías",
-    "Interrupción constante del trabajo escolar",
-    "Daño deliberado al mobiliario o material escolar",
-    "Incumplimiento reiterado de tareas o material"
-  ];
-
-  const toggleFaltaFormal = (falta) => {
+  const toggleFaltaFormal = useCallback((falta) => {
     setFormFormal(prev => ({
       ...prev,
       faltasSeleccionadas: prev.faltasSeleccionadas.includes(falta)
         ? prev.faltasSeleccionadas.filter(f => f !== falta)
         : [...prev.faltasSeleccionadas, falta]
     }));
+  }, []);
+
+  const handleGuardarEnSheets = async () => {
+    setGuardado(true);
+    localStorage.setItem(`historial_3a_${fecha}`, JSON.stringify(alumnos));
+    
+    const urlScript = 'https://script.google.com/macros/s/AKfycbwaILRlvuvI84N9iVF3swItyIoBFn3IpClSGkbrJV7g7RVzRCDmjPbIkFJK3hLSOCog/exec';
+    try {
+      const params = new URLSearchParams();
+      params.append('data', JSON.stringify({ fecha, alumnos }));
+
+      await fetch(urlScript, { method: 'POST', mode: 'no-cors', body: params });
+      console.log("Datos enviados a Sheets exitosamente");
+    } catch (error) {
+      console.error("Error al enviar a Sheets:", error);
+    }
+    setTimeout(() => setGuardado(false), 2500);
   };
 
-  // Cálculos estadísticos
-  const totalAlumnos = alumnos.length;
-  const presentes = alumnos.filter(a => a.asistencia).length;
-  const faltas = totalAlumnos - presentes;
-  const porcentajeAsistencia = totalAlumnos > 0 ? Math.round((presentes / totalAlumnos) * 100) : 0;
-  const tareasCumplidas = alumnos.filter(a => a.asistencia && a.tarea).length;
-  const trabajandoCasa = alumnos.filter(a => a.asistencia && a.lugar === 'casa').length;
+  // Cálculos estadísticos optimizados (solo se recalculan si cambia 'alumnos')
+  const stats = useMemo(() => {
+    const total = alumnos.length;
+    let pres = 0, tar = 0, casa = 0;
+    
+    alumnos.forEach(a => {
+      if (a.asistencia) {
+        pres++;
+        if (a.tarea) tar++;
+        if (a.lugar === 'casa') casa++;
+      }
+    });
+
+    return {
+      total,
+      presentes: pres,
+      faltas: total - pres,
+      porcentaje: total > 0 ? Math.round((pres / total) * 100) : 0,
+      tareasCumplidas: tar,
+      trabajandoCasa: casa
+    };
+  }, [alumnos]);
+
+  // Lista aplanada de incidentes para el reporte optimizada
+  const incidentesReporte = useMemo(() => {
+    return alumnos.some(a => a.incidentes.length > 0) 
+      ? alumnos.flatMap(a => a.incidentes.map(inc => ({ nombre: a.nombre, ...inc })))
+      : [];
+  }, [alumnos]);
 
   if (!estaAutenticado) {
     return (
@@ -216,7 +232,6 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#0B1221] font-sans text-slate-300 pb-24 print:bg-white print:text-black print:p-0 print:pb-0 w-full selection:bg-[#00E5FF] selection:text-black">
       
-      {/* Estilos Globales e Impresión (Carta, Márgenes) */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap');
         :root, body, #root {
@@ -237,12 +252,10 @@ export default function App() {
             print-color-adjust: exact;
             background-color: white !important;
           }
-          /* Ocultar scrollbars al imprimir */
           ::-webkit-scrollbar { display: none; }
         }
       `}</style>
 
-      {/* Header */}
       <header className="bg-[#151D2E] shadow-md border-b border-slate-800/80 sticky top-0 z-30 print:hidden w-full">
         <div className="px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
           <div>
@@ -269,7 +282,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* Navegación y Pestañas */}
       <div className="w-full px-4 md:px-8">
         <div className="mt-6 flex flex-wrap gap-3 print:hidden w-full max-w-3xl">
           <button
@@ -306,7 +318,6 @@ export default function App() {
           </button>
         </div>
 
-        {}
         {vista === 'registro' && (
           <section className="mt-6 print:hidden w-full">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 w-full">
@@ -314,35 +325,34 @@ export default function App() {
                 <div className="p-3 bg-[#00E676]/10 text-[#00E676] rounded-xl"><UserCheck className="w-6 h-6" /></div>
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1">Asistencia</p>
-                  <p className="text-xl font-extrabold text-[#00E676]">{porcentajeAsistencia}% <span className="text-xs font-medium text-slate-500 ml-1">({presentes}/{totalAlumnos})</span></p>
+                  <p className="text-xl font-extrabold text-[#00E676]">{stats.porcentaje}% <span className="text-xs font-medium text-slate-500 ml-1">({stats.presentes}/{stats.total})</span></p>
                 </div>
               </div>
               <div className="bg-[#151D2E] p-4 rounded-2xl shadow-lg border border-slate-800 flex items-center gap-4">
                 <div className="p-3 bg-rose-500/10 text-rose-400 rounded-xl"><UserX className="w-6 h-6" /></div>
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1">Inasistencias</p>
-                  <p className="text-xl font-extrabold text-white">{faltas} <span className="text-xs font-medium text-slate-500 ml-1">alumnos</span></p>
+                  <p className="text-xl font-extrabold text-white">{stats.faltas} <span className="text-xs font-medium text-slate-500 ml-1">alumnos</span></p>
                 </div>
               </div>
               <div className="bg-[#151D2E] p-4 rounded-2xl shadow-lg border border-slate-800 flex items-center gap-4">
                 <div className="p-3 bg-[#00E5FF]/10 text-[#00E5FF] rounded-xl"><Home className="w-6 h-6" /></div>
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1">Trabajo Casa</p>
-                  <p className="text-xl font-extrabold text-white">{trabajandoCasa} <span className="text-xs font-medium text-slate-500 ml-1">hoy</span></p>
+                  <p className="text-xl font-extrabold text-white">{stats.trabajandoCasa} <span className="text-xs font-medium text-slate-500 ml-1">hoy</span></p>
                 </div>
               </div>
               <div className="bg-[#151D2E] p-4 rounded-2xl shadow-lg border border-slate-800 flex items-center gap-4">
                 <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl"><BookOpen className="w-6 h-6" /></div>
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1">Tareas Dadas</p>
-                  <p className="text-xl font-extrabold text-white">{tareasCumplidas} <span className="text-xs font-medium text-slate-500 ml-1">alumnos</span></p>
+                  <p className="text-xl font-extrabold text-white">{stats.tareasCumplidas} <span className="text-xs font-medium text-slate-500 ml-1">alumnos</span></p>
                 </div>
               </div>
             </div>
           </section>
         )}
 
-        {}
         {vista === 'registro' && (
           <main className="mt-6 space-y-6 print:hidden w-full">
             <div className="bg-[#151D2E] p-4 rounded-2xl shadow-lg border border-slate-800 flex flex-col md:flex-row gap-4 justify-between items-center w-full">
@@ -364,7 +374,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Expansión total de la cuadrícula a 100% de la pantalla */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6 gap-5 w-full">
               {alumnosFiltrados.length > 0 ? (
                 alumnosFiltrados.map((alumno) => (
@@ -446,7 +455,6 @@ export default function App() {
           </main>
         )}
 
-        {}
         {alumnoSeleccionado && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 print:hidden">
             <div className="bg-[#151D2E] rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-700 flex flex-col">
@@ -504,7 +512,6 @@ export default function App() {
           </div>
         )}
 
-        {}
         {vista === 'reporte' && (
           <main className="mt-6 space-y-6 w-full max-w-[1000px] mx-auto pb-10">
             <div className="bg-[#151D2E] p-5 rounded-2xl shadow-lg border border-[#00E5FF]/20 flex justify-between items-center print:hidden">
@@ -525,9 +532,9 @@ export default function App() {
               </header>
 
               <div className="grid grid-cols-3 gap-4 py-3 text-xs border-b border-slate-700 print:border-slate-300 bg-[#0B1221] print:bg-slate-100 p-3 my-4">
-                <div><span className="font-bold print:text-slate-600 block text-[9px]">ASISTENCIA</span><p className="text-sm font-extrabold text-[#00E676] print:text-black">{porcentajeAsistencia}% ({presentes}/{totalAlumnos})</p></div>
-                <div><span className="font-bold print:text-slate-600 block text-[9px]">TRABAJO CASA</span><p className="text-sm font-extrabold text-[#00E5FF] print:text-black">{trabajandoCasa} Alumnos</p></div>
-                <div><span className="font-bold print:text-slate-600 block text-[9px]">TAREAS ENTREGADAS</span><p className="text-sm font-extrabold text-indigo-400 print:text-black">{tareasCumplidas} Alumnos</p></div>
+                <div><span className="font-bold print:text-slate-600 block text-[9px]">ASISTENCIA</span><p className="text-sm font-extrabold text-[#00E676] print:text-black">{stats.porcentaje}% ({stats.presentes}/{stats.total})</p></div>
+                <div><span className="font-bold print:text-slate-600 block text-[9px]">TRABAJO CASA</span><p className="text-sm font-extrabold text-[#00E5FF] print:text-black">{stats.trabajandoCasa} Alumnos</p></div>
+                <div><span className="font-bold print:text-slate-600 block text-[9px]">TAREAS ENTREGADAS</span><p className="text-sm font-extrabold text-indigo-400 print:text-black">{stats.tareasCumplidas} Alumnos</p></div>
               </div>
 
               <h3 className="text-[11px] font-bold print:text-black uppercase mt-6 mb-2">I. Control Diario (Asistencia y Tareas)</h3>
@@ -541,7 +548,7 @@ export default function App() {
                 <table className="w-full text-left text-[11px] border-collapse">
                   <thead><tr className="border-b-2 print:border-black print:bg-slate-200 text-slate-400 print:text-black"><th className="p-2 font-bold w-1/4">Alumno</th><th className="p-2 font-bold w-1/6">Categoría</th><th className="p-2 font-bold">Descripción</th></tr></thead>
                   <tbody>
-                    {alumnos.some(a => a.incidentes.length > 0) ? alumnos.flatMap(a => a.incidentes.map(inc => ({ nombre: a.nombre, ...inc }))).map((item) => (<tr key={item.id} className="border-b border-slate-800 print:border-slate-300"><td className="p-2 font-bold print:text-black">{item.nombre}</td><td className="p-2 font-bold uppercase text-[9px] text-amber-400 print:text-slate-800">{item.categoria}</td><td className="p-2 italic print:text-black">{item.detalle}</td></tr>)) : <tr><td colSpan="3" className="p-4 text-center italic text-slate-500">No hay observaciones.</td></tr>}
+                    {incidentesReporte.length > 0 ? incidentesReporte.map((item) => (<tr key={item.id} className="border-b border-slate-800 print:border-slate-300"><td className="p-2 font-bold print:text-black">{item.nombre}</td><td className="p-2 font-bold uppercase text-[9px] text-amber-400 print:text-slate-800">{item.categoria}</td><td className="p-2 italic print:text-black">{item.detalle}</td></tr>)) : <tr><td colSpan="3" className="p-4 text-center italic text-slate-500">No hay observaciones.</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -554,7 +561,6 @@ export default function App() {
           </main>
         )}
 
-        {}
         {vista === 'formal' && (
           <main className="mt-6 w-full max-w-[900px] mx-auto pb-16">
             {!imprimirFormal ? (
@@ -616,16 +622,13 @@ export default function App() {
                 </button>
               </div>
             ) : (
-              // PLANTILLA DE IMPRESIÓN DEL ACTA FORMAL (A4)
               <div className="bg-white text-black w-full mx-auto p-10 md:p-14 shadow-2xl rounded-sm print:p-0 print:shadow-none print:w-full print:max-w-full relative min-h-[1000px]">
                 
-                {/* Botones de control para vista de documento */}
                 <div className="print:hidden flex justify-between mb-8 pb-4 border-b border-slate-200">
                   <button onClick={() => setImprimirFormal(false)} className="text-slate-500 hover:text-black font-bold text-sm px-4 py-2 border border-slate-300 rounded-lg transition-colors">← Volver al Editor</button>
                   <button onClick={() => window.print()} className="bg-amber-500 hover:bg-amber-600 text-amber-950 font-bold text-sm px-6 py-2 rounded-lg flex items-center gap-2 shadow-md transition-colors"><Printer className="w-4 h-4" /> Imprimir Acta Formal</button>
                 </div>
 
-                {/* MEMBRETE OFICIAL DE LA ESCUELA */}
                 <header className="text-center mb-10 border-b-[3px] border-double border-slate-300 pb-6 print:break-inside-avoid">
                   <h2 className="text-xl font-black uppercase tracking-widest text-slate-900">Escuela Primaria "Vicente Guerrero"</h2>
                   <div className="text-[11px] font-bold text-slate-600 mt-2 space-y-1">
@@ -640,10 +643,9 @@ export default function App() {
                   </div>
                 </header>
 
-                {/* CUERPO DEL DOCUMENTO */}
                 <div className="space-y-6 text-sm leading-relaxed">
                   <p className="text-justify print:text-[13px] leading-loose">
-                    En la Tenencia de <span className="font-bold">Vicente Riva Palacio, Municipio de San Lucas, Michoacán</span>, dentro de las instalaciones de la <span className="font-bold">Escuela Primaria "Vicente Guerrero"</span>, siendo las <span className="font-bold border-b border-black px-2">{formFormal.hora || '______'}</span> horas del día <span className="font-bold border-b border-black px-2">{fecha.split('-').reverse().join('/')}</span>, 
+                    En la localidad de <span className="font-bold">Vicente Riva Palacio, Municipio de San Lucas, Michoacán</span>, dentro de las instalaciones de la <span className="font-bold">Escuela Primaria "Vicente Guerrero"</span>, siendo las <span className="font-bold border-b border-black px-2">{formFormal.hora || '______'}</span> horas del día <span className="font-bold border-b border-black px-2">{fecha.split('-').reverse().join('/')}</span>, 
                     el docente titular <span className="font-bold">Profr. Aristeo Maya Corona</span> procede a levantar la presente acta para dejar constancia de los hechos ocurridos en <span className="font-bold border-b border-black px-2">{formFormal.lugar}</span>, 
                     relacionados con el/la alumno(a):
                   </p>
@@ -681,7 +683,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* BLOQUE DE FIRMAS: INSEPARABLE Y CENTRADO EN HOJA 2 SI ES NECESARIO */}
                 <div className="print:break-inside-avoid print:mt-[80px] mt-[80px] mb-[60px]">
                   <p className="text-[11px] text-justify mb-24 italic text-slate-700 leading-relaxed max-w-4xl mx-auto">
                     La presente acta se lee a los involucrados, quienes manifiestan su entera conformidad con la descripción de los hechos y los acuerdos establecidos, firmando al calce para constancia y efectos legales o administrativos a que haya lugar.
@@ -703,7 +704,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* PIE DE PÁGINA REPETITIVO (SOLO VISIBLE AL IMPRIMIR) */}
                 <div className="hidden print:block fixed bottom-0 left-0 right-0 text-center text-[8px] text-slate-500 font-bold uppercase border-t border-slate-300 pt-2 bg-white pb-3 w-full">
                   Acta Circunstanciada de Hechos &nbsp;|&nbsp; Esc. Prim. Vicente Guerrero &nbsp;|&nbsp; C.C.T. 16DPR2428N
                   <br/>
@@ -715,7 +715,6 @@ export default function App() {
         )}
       </div>
 
-      {/* FOOTER GLOBAL - Botón de guardado a Sheets */}
       {vista !== 'formal' && (
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#0B1221]/95 backdrop-blur-md border-t border-slate-800 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] z-30 print:hidden w-full">
           <div className="w-full px-4 md:px-8 flex items-center justify-between gap-4">
