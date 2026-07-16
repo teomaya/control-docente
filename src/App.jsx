@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Calendar, UserCheck, UserX, Home, School, BookOpen, Save, CheckCircle2, 
   Printer, Search, BookOpenCheck, AlertCircle, Plus, Trash2, X, FileText, Award, User, Lock 
@@ -24,7 +24,7 @@ const alumnosIniciales = [
   { id: 17, nombre: 'Saucedo Espinoza Alvaro Santiago', asistencia: true, lugar: 'salon', tarea: true, canal: 'Visual', diagnostico: 'Trabaja de forma muy ordenada en su libreta.', incidentes: [] },
   { id: 18, nombre: 'Toribio Herrera Eleazar', asistencia: true, lugar: 'salon', tarea: true, canal: 'Kinestésico', diagnostico: 'Excelente coordinación motriz en las actividades.', incidentes: [] },
   { id: 19, nombre: 'Torres Aguilera Kathia Paloma', asistencia: true, lugar: 'salon', tarea: true, canal: 'Visual', diagnostico: 'Facilidad para aprender mediante la observación directa.', incidentes: [] },
-  { id: 20, nombre: 'Zavaleta Orrostieta Elia Sofia', asistencia: true, lugar: 'salon', tarea: true, canal: 'Visual', diagnostico: 'Comprende fácilmente lecturas de texto.', incidentes: [] }, // ¡Error "font:" corregido aquí!
+  { id: 20, nombre: 'Zavaleta Orrostieta Elia Sofia', asistencia: true, lugar: 'salon', tarea: true, canal: 'Visual', diagnostico: 'Comprende fácilmente lecturas de texto.', incidentes: [] },
   { id: 21, nombre: 'Lopez Venegas Rosalia', asistencia: true, lugar: 'salon', tarea: true, canal: 'Kinestésico', diagnostico: 'Se apoya mucho utilizando material didáctico concreto.', incidentes: [] },
   { id: 22, nombre: 'Renteria Catalan Giselle', asistencia: true, lugar: 'salon', tarea: true, canal: 'Auditivo', diagnostico: 'Excelente comprensión lectora al leer en voz alta.', incidentes: [] },
   { id: 23, nombre: 'Orozco Lopez Jose De Jesus', asistencia: true, lugar: 'salon', tarea: true, canal: 'Visual', diagnostico: 'Requiere indicaciones visuales claras en el pizarrón.', incidentes: [] }
@@ -40,6 +40,15 @@ export default function App() {
 
   const { alumnos, fecha, busqueda, filtro, vista, guardado, alSel, idInc, nuevoInc } = state;
   const set = (k, v) => setState(p => ({ ...p, [k]: v }));
+
+  // EFECTO MÁGICO: Carga el historial al cambiar la fecha en el calendario
+  useEffect(() => {
+    try {
+      const historial = JSON.parse(localStorage.getItem('historial_3a') || '{}');
+      // Si hay registro de ese día lo carga, si no, carga la lista en limpio clonada
+      set('alumnos', historial[fecha] || JSON.parse(JSON.stringify(alumnosIniciales)));
+    } catch (e) { console.error(e); }
+  }, [fecha]);
 
   const alumnosFiltrados = alumnos.filter(a => 
     a.nombre?.toLowerCase().includes(busqueda.toLowerCase()) && (filtro === 'Todos' || a.canal === filtro)
@@ -68,13 +77,24 @@ export default function App() {
     if (action === 'add') { set('nuevoInc', { categoria: 'Conducta', detalle: '' }); set('idInc', null); }
   };
 
+  // Función Guardar (Conectada a Sheets y ahora guarda Historial Local)
   const guardarSheets = async () => {
     set('guardado', true);
+    
+    // 1. Guardar copia en el historial local del navegador
+    try {
+      const historial = JSON.parse(localStorage.getItem('historial_3a') || '{}');
+      historial[fecha] = alumnos;
+      localStorage.setItem('historial_3a', JSON.stringify(historial));
+    } catch (e) { console.error(e); }
+
+    // 2. Enviar a Google Sheets
     try {
       const params = new URLSearchParams({ data: JSON.stringify({ fecha, alumnos }) });
       await fetch('https://script.google.com/macros/s/AKfycbwaILRlvuvI84N9iVF3swItyIoBFn3IpClSGkbrJV7g7RVzRCDmjPbIkFJK3hLSOCog/exec', 
         { method: 'POST', mode: 'no-cors', body: params });
     } catch (e) { console.error(e); }
+    
     setTimeout(() => set('guardado', false), 2500);
   };
 
@@ -158,7 +178,7 @@ export default function App() {
               </select>
             </div>
 
-            {/* Grid de Alumnos (Fluido a pantalla completa) */}
+            {/* Grid de Alumnos */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6 gap-4">
               {alumnosFiltrados.map(a => (
                 <div key={a.id} className={`bg-[#151D2E] p-4 rounded-2xl border flex flex-col gap-3 ${a.asistencia ? 'border-slate-800' : 'border-rose-900/40 bg-rose-950/10'}`}>
@@ -201,7 +221,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Modal de Alumno (Comprimido) */}
+        {/* Modal Ficha Técnica */}
         {alSel && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50 print:hidden">
             <div className="bg-[#151D2E] rounded-2xl w-full max-w-md border border-slate-700 p-5 space-y-4">
@@ -231,27 +251,79 @@ export default function App() {
           </div>
         )}
 
+        {/* ============================================================== */}
+        {/* VISTA DE REPORTE - RESTRINGIDA A TAMAÑO DE HOJA (CARTA) */}
+        {/* ============================================================== */}
         {vista === 'reporte' && (
-          <div className="bg-white print:p-0 p-8 rounded-xl text-black">
-            <header className="border-b-2 border-black pb-4 mb-4 flex justify-between items-end">
-              <div><h1 className="text-lg font-bold uppercase">Reporte Control Docente</h1><p className="text-xs font-bold">3° "A" • Profr. Aristeo Maya Corona</p></div>
-              <p className="text-xs font-bold">FECHA: {fecha}</p>
-            </header>
-            <table className="w-full text-left text-[11px] border-collapse">
-              <thead><tr className="border-b-2 border-black bg-slate-200"><th className="p-2">N.L.</th><th className="p-2">Nombre</th><th className="p-2">Asist.</th><th className="p-2">Lugar</th><th className="p-2">Tarea</th><th className="p-2">Canal</th></tr></thead>
-              <tbody>{alumnos.map(a => (
-                <tr key={a.id} className="border-b border-slate-300"><td className="p-2 font-bold">{a.id}</td><td className="p-2">{a.nombre}</td><td className="p-2 font-bold">{a.asistencia ? 'PRESENTE' : 'FALTÓ'}</td><td className="p-2 capitalize">{a.asistencia ? a.lugar : '-'}</td><td className="p-2 font-bold">{a.asistencia ? (a.tarea ? 'CUMPLIÓ' : 'PENDIENTE') : '-'}</td><td className="p-2 uppercase">{a.canal}</td></tr>
-              ))}</tbody>
-            </table>
-            <footer className="mt-16 pt-4 border-t border-black flex justify-between text-[10px] font-bold text-center">
-              <div className="w-40 border-t border-black pt-1">Firma Docente</div><div className="w-40 border-t border-black pt-1">Vo. Bo. Dirección</div>
-            </footer>
+          <div className="w-full max-w-[900px] mx-auto pb-20 print:pb-0">
+            
+            {/* Panel de control de impresión */}
+            <div className="bg-[#151D2E] p-4 rounded-xl border border-slate-800 flex justify-between items-center mb-6 print:hidden shadow-lg">
+              <div>
+                <h3 className="text-white font-bold flex items-center gap-2"><Printer className="w-5 h-5 text-[#00E5FF]" /> Preparado para Imprimir</h3>
+                <p className="text-xs text-slate-400">El diseño ya simula una hoja Carta.</p>
+              </div>
+              <button onClick={() => window.print()} className="bg-[#00E5FF] text-[#0B1221] px-5 py-2.5 rounded-lg font-bold flex items-center gap-2 hover:bg-[#00cce6] transition shadow-[0_0_15px_rgba(0,229,255,0.3)]">
+                Imprimir Documento
+              </button>
+            </div>
+
+            {/* Hoja Blanca (A4/Carta) */}
+            <div className="bg-white p-10 md:p-14 shadow-2xl rounded-sm text-black print:p-0 print:shadow-none border border-slate-200 print:border-none">
+              
+              <header className="border-b-2 border-black pb-4 mb-6 flex justify-between items-end">
+                <div>
+                  <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight">Reporte Control Docente</h1>
+                  <p className="text-sm font-bold text-slate-700 mt-1">3° "A" • Profr. Aristeo Maya Corona</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold">FECHA:</p>
+                  <p className="text-xl font-black">{fecha}</p>
+                </div>
+              </header>
+              
+              <table className="w-full text-left text-xs md:text-sm border-collapse">
+                <thead>
+                  <tr className="border-y-2 border-black bg-slate-100">
+                    <th className="p-3 font-black">N.L.</th>
+                    <th className="p-3 font-black">Nombre del Alumno</th>
+                    <th className="p-3 font-black text-center">Asist.</th>
+                    <th className="p-3 font-black text-center">Ubicación</th>
+                    <th className="p-3 font-black text-center">Tarea</th>
+                    <th className="p-3 font-black">Canal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {alumnos.map(a => (
+                    <tr key={a.id} className="border-b border-slate-300">
+                      <td className="p-3 font-black text-slate-600">{a.id}</td>
+                      <td className="p-3 font-bold uppercase">{a.nombre}</td>
+                      <td className="p-3 text-center font-bold">{a.asistencia ? 'PRESENTE' : 'FALTÓ'}</td>
+                      <td className="p-3 text-center capitalize">{a.asistencia ? a.lugar : '-'}</td>
+                      <td className="p-3 text-center font-bold">{a.asistencia ? (a.tarea ? 'CUMPLIÓ' : 'PENDIENTE') : '-'}</td>
+                      <td className="p-3 font-bold uppercase text-[10px] md:text-xs text-slate-500">{a.canal}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <footer className="mt-20 pt-4 border-t-2 border-black flex justify-between text-xs font-bold text-center">
+                <div className="w-48 pt-2">
+                  <div className="border-b border-black mb-2 h-10"></div>
+                  Firma Docente
+                </div>
+                <div className="w-48 pt-2">
+                  <div className="border-b border-black mb-2 h-10"></div>
+                  Vo. Bo. Dirección
+                </div>
+              </footer>
+            </div>
           </div>
         )}
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 p-3 bg-[#0B1221]/95 border-t border-slate-800 z-30 print:hidden flex justify-center w-full">
-        <button onClick={guardarSheets} disabled={guardado} className={`w-full max-w-lg py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-sm transition-colors ${guardado ? 'bg-[#00E676] text-black' : 'bg-[#00E676] text-black hover:bg-[#00c766]'}`}>
+        <button onClick={guardarSheets} disabled={guardado} className={`w-full max-w-lg py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-sm transition-colors shadow-lg ${guardado ? 'bg-[#00E676] text-[#0B1221]' : 'bg-[#00E676] text-[#0B1221] hover:bg-[#00c766]'}`}>
           {guardado ? <><CheckCircle2 className="w-5 h-5" /> ¡GUARDADO EN SHEETS!</> : <><Save className="w-5 h-5" /> GUARDAR EN GOOGLE SHEETS</>}
         </button>
       </div>
