@@ -41,7 +41,7 @@ const opcionesFaltasForm = [
 
 const CONTRASENA_CORRECTA = 'Profe2026'; 
 
-// REEMPLAZA ESTA URL CON LA QUE TE DIO EN "NUEVA IMPLEMENTACIÓN":
+// URL DE GOOGLE SHEETS INTACTA
 const URL_GOOGLE_SCRIPT = 'https://script.google.com/macros/s/AKfycbyrW9JLKyIcbBAb3DzwXGMQXEvbL77LaWVb5HlILh1TKIOxVgkBfcQWt2BCFE1DzVBV/exec'; 
 
 export default function App() {
@@ -69,7 +69,6 @@ export default function App() {
   });
   const [imprimirFormal, setImprimirFormal] = useState(false);
 
-  // Cargar primero desde memoria local si existe
   useEffect(() => {
     const historialGuardado = localStorage.getItem(`historial_3a_${fecha}`);
     if (historialGuardado) {
@@ -92,7 +91,6 @@ export default function App() {
     }
   }, [contrasena]);
 
-  // Guardar en Google Sheets (Escribe directo en Hoja 1)
   const handleGuardarEnSheets = async () => {
     setGuardado(true);
     localStorage.setItem(`historial_3a_${fecha}`, JSON.stringify(alumnos));
@@ -112,7 +110,6 @@ export default function App() {
     }, 3000);
   };
 
-  // Descargar día desde Google Sheets
   const handleSincronizarNube = async () => {
     setSincronizando(true);
     setMensajeSync('Descargando...');
@@ -183,14 +180,39 @@ export default function App() {
 
   const incidentesReporte = useMemo(() => alumnos.flatMap(a => a.incidentes.map(inc => ({ nombre: a.nombre, ...inc }))), [alumnos]);
 
+  // Estilos globales aplicados en ambas vistas para asegurar el fondo azul claro
+  // y bloquear el color autocompletado feo de Chrome/Edge
+  const GlobalStyles = () => (
+    <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap');
+      :root, body, #root { 
+        margin: 0; 
+        padding: 0; 
+        width: 100%; 
+        min-height: 100vh;
+        font-family: 'Nunito', sans-serif; 
+        background-color: #eef6ff !important; 
+      }
+      /* Prevenir que el autocompletado ponga fondo verde/oliva/amarillo */
+      input:-webkit-autofill,
+      input:-webkit-autofill:hover, 
+      input:-webkit-autofill:focus, 
+      input:-webkit-autofill:active{
+          -webkit-box-shadow: 0 0 0 30px white inset !important;
+          -webkit-text-fill-color: #1e293b !important;
+      }
+      @media print {
+        @page { size: letter; margin: 1.5cm 2cm; }
+        body, #root { background: white !important; }
+        ::-webkit-scrollbar { display: none; }
+      }
+    `}</style>
+  );
+
   if (!estaAutenticado) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 font-sans w-full bg-[#dbeafe]">
-        <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap');
-          :root, body, #root { font-family: 'Nunito', sans-serif; }
-        `}</style>
-        
+      <div className="fixed inset-0 min-h-screen flex items-center justify-center p-4 w-full bg-[#eef6ff]">
+        <GlobalStyles />
         <div className="bg-white p-8 md:p-10 rounded-[35px] shadow-xl max-w-md w-full text-center border-4 border-white ring-4 ring-blue-100">
           <div className="bg-[#2563eb] w-20 h-20 rounded-[26px] flex items-center justify-center mx-auto mb-6 text-white shadow-lg shadow-blue-500/30">
             <Lock className="w-10 h-10" />
@@ -204,9 +226,10 @@ export default function App() {
               type="password"
               placeholder="•••••••••"
               value={contrasena}
+              autoComplete="new-password"
               onChange={(e) => { setContrasena(e.target.value); setErrorLogin(''); }}
               autoFocus
-              className="w-full p-4 border-2 border-blue-100 bg-blue-50/50 rounded-2xl outline-none focus:border-[#2563eb] focus:bg-white transition-all text-center text-2xl tracking-[0.25em] font-black text-slate-800"
+              className="w-full p-4 border-2 border-blue-100 bg-white rounded-2xl outline-none focus:border-[#2563eb] transition-all text-center text-2xl tracking-[0.25em] font-black text-slate-800"
             />
             {errorLogin && <p className="text-rose-600 text-sm font-black bg-rose-50 py-2 rounded-xl">{errorLogin}</p>}
             <button 
@@ -222,20 +245,12 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen text-slate-700 pb-36 print:bg-white print:text-black print:p-0 print:pb-0 w-full bg-[#eef6ff]">
+    <div className="min-h-screen text-slate-700 pb-36 w-full bg-[#eef6ff]">
+      <GlobalStyles />
       
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap');
-        :root, body, #root { margin: 0; padding: 0; font-family: 'Nunito', sans-serif; background-color: #eef6ff; }
-        @media print {
-          @page { size: letter; margin: 1.5cm 2cm; }
-          body { background: white !important; }
-        }
-      `}</style>
-
       {/* Barra Superior */}
       <header className="bg-white/95 backdrop-blur-md shadow-sm sticky top-0 z-30 print:hidden w-full border-b-2 border-blue-100">
-        <div className="px-4 md:px-8 py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-4 w-full max-w-[1400px] mx-auto">
+        <div className="px-4 md:px-8 py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-4 w-full max-w-[1200px] mx-auto">
           <div className="flex items-center gap-3">
             <span className="p-2.5 bg-[#2563eb] text-white rounded-2xl shadow-md">
               <Award className="w-6 h-6" />
@@ -260,7 +275,7 @@ export default function App() {
         </div>
       </header>
 
-      <div className="w-full px-4 md:px-8 max-w-[1400px] mx-auto">
+      <div className="w-full px-4 md:px-8 max-w-[1200px] mx-auto">
         
         {/* Pestañas estilo menú infantil redondeado */}
         <div className="mt-6 flex flex-wrap gap-3 print:hidden w-full">
@@ -302,28 +317,28 @@ export default function App() {
         {vista === 'registro' && (
           <section className="mt-6 print:hidden w-full">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 w-full">
-              <div className="bg-white p-4 md:p-5 rounded-3xl shadow-sm border-2 border-blue-50 flex items-center gap-4">
+              <div className="bg-white p-4 md:p-5 rounded-3xl shadow-sm border-2 border-blue-100 flex items-center gap-4">
                 <div className="p-3 bg-emerald-100 text-emerald-600 rounded-2xl"><UserCheck className="w-6 h-6" /></div>
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-slate-400 font-black">Asistencia</p>
                   <p className="text-xl md:text-2xl font-black text-emerald-600">{stats.porcentaje}% <span className="text-xs font-bold text-slate-400">({stats.presentes}/{stats.total})</span></p>
                 </div>
               </div>
-              <div className="bg-white p-4 md:p-5 rounded-3xl shadow-sm border-2 border-blue-50 flex items-center gap-4">
+              <div className="bg-white p-4 md:p-5 rounded-3xl shadow-sm border-2 border-blue-100 flex items-center gap-4">
                 <div className="p-3 bg-rose-100 text-rose-600 rounded-2xl"><UserX className="w-6 h-6" /></div>
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-slate-400 font-black">Faltas</p>
                   <p className="text-xl md:text-2xl font-black text-rose-600">{stats.faltas} <span className="text-xs font-bold text-slate-400">alumnos</span></p>
                 </div>
               </div>
-              <div className="bg-white p-4 md:p-5 rounded-3xl shadow-sm border-2 border-blue-50 flex items-center gap-4">
+              <div className="bg-white p-4 md:p-5 rounded-3xl shadow-sm border-2 border-blue-100 flex items-center gap-4">
                 <div className="p-3 bg-amber-100 text-amber-600 rounded-2xl"><Home className="w-6 h-6" /></div>
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-slate-400 font-black">En Casa</p>
                   <p className="text-xl md:text-2xl font-black text-amber-600">{stats.trabajandoCasa} <span className="text-xs font-bold text-slate-400">hoy</span></p>
                 </div>
               </div>
-              <div className="bg-white p-4 md:p-5 rounded-3xl shadow-sm border-2 border-blue-50 flex items-center gap-4">
+              <div className="bg-white p-4 md:p-5 rounded-3xl shadow-sm border-2 border-blue-100 flex items-center gap-4">
                 <div className="p-3 bg-indigo-100 text-indigo-600 rounded-2xl"><BookOpen className="w-6 h-6" /></div>
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-slate-400 font-black">Tareas</p>
@@ -337,7 +352,7 @@ export default function App() {
         {/* Lista de Alumnos */}
         {vista === 'registro' && (
           <main className="mt-6 space-y-6 print:hidden w-full">
-            <div className="bg-white p-4 rounded-3xl shadow-sm flex flex-col md:flex-row gap-4 justify-between items-center w-full border-2 border-blue-50">
+            <div className="bg-white p-4 rounded-3xl shadow-sm flex flex-col md:flex-row gap-4 justify-between items-center w-full border-2 border-blue-100">
               <div className="relative flex-1 w-full max-w-lg">
                 <Search className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                 <input 
@@ -356,24 +371,23 @@ export default function App() {
               </div>
             </div>
 
-            {/* Cuadrícula con ancho amplio para evitar textos partidos */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 w-full pb-8">
+            {/* AQUI ESTÁ EL AJUSTE PARA QUE NO SE VEAN AMONTONADOS: Máximo 3 columnas */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full pb-8">
               {alumnosFiltrados.length > 0 ? (
                 alumnosFiltrados.map((alumno) => (
                   <div 
                     key={alumno.id}
                     className={`bg-white rounded-3xl p-5 shadow-sm border-2 transition-all flex flex-col justify-between gap-4 relative hover:shadow-md ${
-                      alumno.asistencia ? 'border-blue-100' : 'border-rose-200 bg-rose-50/20'
+                      alumno.asistencia ? 'border-blue-100' : 'border-rose-200 bg-rose-50/30'
                     }`}
                   >
-                    {/* Número de lista circular limpio */}
                     <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-2.5">
-                        <span className="w-8 h-8 rounded-full bg-blue-100 text-[#2563eb] font-black text-xs flex items-center justify-center shrink-0">
+                      <div className="flex items-center gap-3">
+                        <span className="w-9 h-9 rounded-full bg-blue-100 text-[#2563eb] font-black text-sm flex items-center justify-center shrink-0 shadow-sm">
                           {alumno.id}
                         </span>
                         <div>
-                          <span className={`px-2.5 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider ${
+                          <span className={`px-3 py-1 text-[10px] font-black rounded-lg uppercase tracking-wider shadow-sm ${
                             alumno.canal === 'Visual' ? 'bg-indigo-100 text-indigo-700' : alumno.canal === 'Auditivo' ? 'bg-pink-100 text-pink-700' : 'bg-amber-100 text-amber-800'
                           }`}>
                             {alumno.canal}
@@ -381,59 +395,56 @@ export default function App() {
                         </div>
                       </div>
 
-                      <button onClick={() => setAlumnoSeleccionado(alumno)} className="p-2 bg-blue-50 text-slate-400 hover:text-[#2563eb] hover:bg-blue-100 rounded-xl transition-colors shrink-0" title="Ver Perfil">
-                        <User className="w-4 h-4" />
+                      <button onClick={() => setAlumnoSeleccionado(alumno)} className="p-2.5 bg-blue-50 text-slate-400 hover:text-[#2563eb] hover:bg-blue-100 rounded-xl transition-colors shrink-0" title="Ver Perfil">
+                        <User className="w-5 h-5" />
                       </button>
                     </div>
 
-                    {/* Nombre amplio y completo */}
                     <div className="my-1">
-                      <h2 className="text-base font-black text-slate-800 leading-snug break-words">
+                      <h2 className="text-[17px] font-black text-slate-800 leading-snug">
                         {alumno.nombre}
                       </h2>
                     </div>
 
-                    {/* Botones de acción redondeados */}
-                    <div className="grid grid-cols-3 gap-2">
-                      <button onClick={() => toggleAsistencia(alumno.id)} className={`flex flex-col items-center justify-center p-2.5 rounded-2xl border-2 transition-transform active:scale-95 ${alumno.asistencia ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-600 border-rose-200'}`}>
-                        {alumno.asistencia ? <UserCheck className="w-5 h-5 mb-1" /> : <UserX className="w-5 h-5 mb-1" />}
+                    <div className="grid grid-cols-3 gap-2.5">
+                      <button onClick={() => toggleAsistencia(alumno.id)} className={`flex flex-col items-center justify-center py-3 px-1 rounded-2xl border-2 transition-transform active:scale-95 shadow-sm ${alumno.asistencia ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-600 border-rose-200'}`}>
+                        {alumno.asistencia ? <UserCheck className="w-5 h-5 mb-1.5" /> : <UserX className="w-5 h-5 mb-1.5" />}
                         <span className="text-[10px] font-black">{alumno.asistencia ? 'PRESENTE' : 'FALTÓ'}</span>
                       </button>
-                      <button onClick={() => toggleLugar(alumno.id)} disabled={!alumno.asistencia} className={`flex flex-col items-center justify-center p-2.5 rounded-2xl border-2 transition-transform active:scale-95 ${!alumno.asistencia ? 'opacity-30 cursor-not-allowed bg-slate-50 border-slate-200 text-slate-400' : alumno.lugar === 'salon' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
-                        {alumno.lugar === 'salon' ? <School className="w-5 h-5 mb-1" /> : <Home className="w-5 h-5 mb-1" />}
+                      <button onClick={() => toggleLugar(alumno.id)} disabled={!alumno.asistencia} className={`flex flex-col items-center justify-center py-3 px-1 rounded-2xl border-2 transition-transform active:scale-95 shadow-sm ${!alumno.asistencia ? 'opacity-30 cursor-not-allowed bg-slate-50 border-slate-200 text-slate-400 shadow-none' : alumno.lugar === 'salon' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                        {alumno.lugar === 'salon' ? <School className="w-5 h-5 mb-1.5" /> : <Home className="w-5 h-5 mb-1.5" />}
                         <span className="text-[10px] font-black">{alumno.lugar === 'salon' ? 'SALÓN' : 'CASA'}</span>
                       </button>
-                      <button onClick={() => toggleTarea(alumno.id)} disabled={!alumno.asistencia} className={`flex flex-col items-center justify-center p-2.5 rounded-2xl border-2 transition-transform active:scale-95 ${!alumno.asistencia ? 'opacity-30 cursor-not-allowed bg-slate-50 border-slate-200 text-slate-400' : alumno.tarea ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-slate-50 text-slate-400 border-slate-200'}`}>
-                        <BookOpen className="w-5 h-5 mb-1" />
+                      <button onClick={() => toggleTarea(alumno.id)} disabled={!alumno.asistencia} className={`flex flex-col items-center justify-center py-3 px-1 rounded-2xl border-2 transition-transform active:scale-95 shadow-sm ${!alumno.asistencia ? 'opacity-30 cursor-not-allowed bg-slate-50 border-slate-200 text-slate-400 shadow-none' : alumno.tarea ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-slate-50 text-slate-400 border-slate-200'}`}>
+                        <BookOpen className="w-5 h-5 mb-1.5" />
                         <span className="text-[10px] font-black">{alumno.tarea ? 'CUMPLIÓ' : 'NADA'}</span>
                       </button>
                     </div>
 
-                    {/* Sección de notas rápidas */}
-                    <div className="border-t-2 border-slate-50 pt-3">
+                    <div className="border-t-2 border-slate-100 pt-3.5 mt-1">
                       {idAlumnoIncidente === alumno.id ? (
-                        <div className="space-y-2 bg-blue-50/60 p-3 rounded-2xl border-2 border-blue-100">
+                        <div className="space-y-2.5 bg-blue-50/60 p-3.5 rounded-2xl border-2 border-blue-100">
                           <div className="flex gap-2">
-                            <select value={incidenteNuevo.categoria} onChange={(e) => setIncidenteNuevo({ ...incidenteNuevo, categoria: e.target.value })} className="text-xs font-black p-1.5 bg-white border border-blue-200 rounded-xl text-slate-700 outline-none flex-1">
+                            <select value={incidenteNuevo.categoria} onChange={(e) => setIncidenteNuevo({ ...incidenteNuevo, categoria: e.target.value })} className="text-xs font-black p-2 bg-white border-2 border-blue-100 rounded-xl text-slate-700 outline-none flex-1">
                               <option value="Conducta">Conducta</option><option value="Académico">Académico</option><option value="Emocional">Emocional</option><option value="Salud">Salud</option>
                             </select>
-                            <button onClick={() => setIdAlumnoIncidente(null)} className="text-slate-400 hover:text-rose-600 p-1.5 bg-white rounded-xl border border-blue-200"><X className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => setIdAlumnoIncidente(null)} className="text-slate-400 hover:text-rose-600 p-2 bg-white rounded-xl border-2 border-blue-100"><X className="w-4 h-4" /></button>
                           </div>
-                          <textarea placeholder="Detalle de la nota..." value={incidenteNuevo.detalle} onChange={(e) => setIncidenteNuevo({ ...incidenteNuevo, detalle: e.target.value })} className="w-full text-xs font-bold p-2 bg-white text-slate-700 border border-blue-200 rounded-xl outline-none resize-none h-14" />
-                          <button onClick={() => agregarIncidente(alumno.id)} className="w-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-xs py-2 rounded-xl font-black flex items-center justify-center gap-1">
-                            <Plus className="w-3.5 h-3.5" /> Guardar Nota
+                          <textarea placeholder="Detalle de la nota..." value={incidenteNuevo.detalle} onChange={(e) => setIncidenteNuevo({ ...incidenteNuevo, detalle: e.target.value })} className="w-full text-xs font-bold p-3 bg-white text-slate-700 border-2 border-blue-100 rounded-xl outline-none resize-none h-16" />
+                          <button onClick={() => agregarIncidente(alumno.id)} className="w-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-xs py-2.5 rounded-xl font-black flex items-center justify-center gap-1.5 shadow-sm">
+                            <Plus className="w-4 h-4" /> Guardar Nota
                           </button>
                         </div>
                       ) : (
-                        <div className="flex items-center justify-between">
-                          <button onClick={() => setIdAlumnoIncidente(alumno.id)} className="text-xs text-[#2563eb] hover:underline flex items-center gap-1 font-black"><Plus className="w-3.5 h-3.5" /> Nueva Nota</button>
-                          {alumno.incidentes.length > 0 && <span className="flex items-center gap-1 text-[11px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-lg font-black"><AlertCircle className="w-3 h-3" /> {alumno.incidentes.length}</span>}
+                        <div className="flex items-center justify-between px-1">
+                          <button onClick={() => setIdAlumnoIncidente(alumno.id)} className="text-sm text-[#2563eb] hover:underline flex items-center gap-1 font-black"><Plus className="w-4 h-4" /> Nueva Nota</button>
+                          {alumno.incidentes.length > 0 && <span className="flex items-center gap-1.5 text-[11px] bg-amber-100 text-amber-800 px-2.5 py-1 rounded-lg font-black"><AlertCircle className="w-3.5 h-3.5" /> {alumno.incidentes.length}</span>}
                         </div>
                       )}
                       {alumno.incidentes.length > 0 && idAlumnoIncidente !== alumno.id && (
-                        <div className="mt-2 space-y-1">
+                        <div className="mt-3 space-y-1.5">
                           {alumno.incidentes.slice(0, 1).map((inc) => (
-                            <div key={inc.id} className="text-[11px] font-bold bg-amber-50 p-2 rounded-xl border border-amber-200 flex items-start gap-1.5">
+                            <div key={inc.id} className="text-xs font-bold bg-amber-50 p-2.5 rounded-xl border border-amber-200 flex items-start gap-2">
                               <span className="font-black text-amber-800 uppercase">{inc.categoria}:</span>
                               <p className="flex-1 text-slate-700 truncate">{inc.detalle}</p>
                             </div>
@@ -444,7 +455,7 @@ export default function App() {
                   </div>
                 ))
               ) : (
-                <div className="col-span-full bg-white rounded-3xl p-12 text-center shadow-sm">
+                <div className="col-span-full bg-white rounded-3xl p-12 text-center shadow-sm border-2 border-blue-50">
                   <p className="text-slate-400 font-black text-base">No se encontraron alumnos con ese nombre.</p>
                 </div>
               )}
@@ -518,7 +529,7 @@ export default function App() {
         {/* Vista Reporte Diario */}
         {vista === 'reporte' && (
           <main className="mt-6 space-y-6 w-full max-w-[1000px] mx-auto pb-12">
-            <div className="bg-white p-4 rounded-3xl shadow-sm border-2 border-blue-50 flex justify-between items-center print:hidden">
+            <div className="bg-white p-4 rounded-3xl shadow-sm border-2 border-blue-100 flex justify-between items-center print:hidden">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-blue-100 text-[#2563eb] rounded-xl"><Printer className="w-5 h-5" /></div>
                 <div><h3 className="text-base font-black text-slate-800">Reporte Diario para Imprimir</h3></div>
@@ -526,7 +537,7 @@ export default function App() {
               <button onClick={() => window.print()} className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-black text-xs px-6 py-3 rounded-2xl flex items-center gap-2 shadow-md"><Printer className="w-4 h-4" /> Imprimir Hoja</button>
             </div>
 
-            <div className="bg-white text-black p-10 rounded-3xl shadow-md border-2 border-blue-50 print:border-none print:shadow-none print:p-0">
+            <div className="bg-white text-black p-10 rounded-3xl shadow-md border-2 border-blue-100 print:border-none print:shadow-none print:p-0">
               <header className="border-b-2 border-black pb-4 flex justify-between items-end">
                 <div>
                   <h1 className="text-2xl font-black text-slate-900 uppercase">Reporte General de Grupo</h1>
@@ -690,7 +701,7 @@ export default function App() {
       {/* Barra Flotante Inferior */}
       {vista !== 'formal' && (
         <div className="fixed bottom-0 left-0 right-0 p-3.5 bg-white/95 backdrop-blur-xl border-t-2 border-blue-100 shadow-xl z-30 print:hidden w-full">
-          <div className="w-full px-4 md:px-8 max-w-[1400px] mx-auto flex items-center justify-between gap-4">
+          <div className="w-full px-4 md:px-8 max-w-[1200px] mx-auto flex items-center justify-between gap-4">
             <div className="hidden sm:flex flex-col">
               <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider">Estado de Conexión</span>
               <span className="text-xs font-black text-[#2563eb] flex items-center gap-1.5">
