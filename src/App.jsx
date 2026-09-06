@@ -180,26 +180,28 @@ export default function App() {
 
   const incidentesReporte = useMemo(() => alumnos.flatMap(a => a.incidentes.map(inc => ({ nombre: a.nombre, ...inc }))), [alumnos]);
 
-  // Estilos globales aplicados en ambas vistas para asegurar el fondo azul claro
-  // y bloquear el color autocompletado feo de Chrome/Edge
+  // Estilos globales: Hack extremo para matar el fondo verde de autocompletado y asegurar ancho total
   const GlobalStyles = () => (
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap');
       :root, body, #root { 
         margin: 0; 
         padding: 0; 
-        width: 100%; 
+        width: 100vw; 
         min-height: 100vh;
         font-family: 'Nunito', sans-serif; 
         background-color: #eef6ff !important; 
+        overflow-x: hidden;
       }
-      /* Prevenir que el autocompletado ponga fondo verde/oliva/amarillo */
+      /* Anular el fondo verde de LastPass/Chrome/Edge */
       input:-webkit-autofill,
       input:-webkit-autofill:hover, 
       input:-webkit-autofill:focus, 
-      input:-webkit-autofill:active{
-          -webkit-box-shadow: 0 0 0 30px white inset !important;
+      input:-webkit-autofill:active {
+          -webkit-box-shadow: 0 0 0px 1000px #ffffff inset !important;
           -webkit-text-fill-color: #1e293b !important;
+          transition: background-color 5000s ease-in-out 0s !important;
+          background-color: #ffffff !important;
       }
       @media print {
         @page { size: letter; margin: 1.5cm 2cm; }
@@ -211,9 +213,9 @@ export default function App() {
 
   if (!estaAutenticado) {
     return (
-      <div className="fixed inset-0 min-h-screen flex items-center justify-center p-4 w-full bg-[#eef6ff]">
+      <div className="absolute inset-0 w-full min-h-screen flex items-center justify-center p-4 bg-[#eef6ff]">
         <GlobalStyles />
-        <div className="bg-white p-8 md:p-10 rounded-[35px] shadow-xl max-w-md w-full text-center border-4 border-white ring-4 ring-blue-100">
+        <div className="bg-white p-8 md:p-10 rounded-[35px] shadow-xl max-w-md w-full text-center border-4 border-white ring-4 ring-blue-100 relative z-10">
           <div className="bg-[#2563eb] w-20 h-20 rounded-[26px] flex items-center justify-center mx-auto mb-6 text-white shadow-lg shadow-blue-500/30">
             <Lock className="w-10 h-10" />
           </div>
@@ -226,10 +228,10 @@ export default function App() {
               type="password"
               placeholder="•••••••••"
               value={contrasena}
-              autoComplete="new-password"
               onChange={(e) => { setContrasena(e.target.value); setErrorLogin(''); }}
               autoFocus
-              className="w-full p-4 border-2 border-blue-100 bg-white rounded-2xl outline-none focus:border-[#2563eb] transition-all text-center text-2xl tracking-[0.25em] font-black text-slate-800"
+              autoComplete="off"
+              className="w-full p-4 border-2 border-blue-100 bg-white rounded-2xl outline-none focus:border-[#2563eb] transition-all text-center text-2xl tracking-[0.25em] font-black text-slate-800 relative z-20"
             />
             {errorLogin && <p className="text-rose-600 text-sm font-black bg-rose-50 py-2 rounded-xl">{errorLogin}</p>}
             <button 
@@ -248,9 +250,9 @@ export default function App() {
     <div className="min-h-screen text-slate-700 pb-36 w-full bg-[#eef6ff]">
       <GlobalStyles />
       
-      {/* Barra Superior */}
+      {/* Barra Superior - Ahora abarca el 100% de la pantalla */}
       <header className="bg-white/95 backdrop-blur-md shadow-sm sticky top-0 z-30 print:hidden w-full border-b-2 border-blue-100">
-        <div className="px-4 md:px-8 py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-4 w-full max-w-[1200px] mx-auto">
+        <div className="px-4 md:px-8 lg:px-12 py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
           <div className="flex items-center gap-3">
             <span className="p-2.5 bg-[#2563eb] text-white rounded-2xl shadow-md">
               <Award className="w-6 h-6" />
@@ -275,9 +277,10 @@ export default function App() {
         </div>
       </header>
 
-      <div className="w-full px-4 md:px-8 max-w-[1200px] mx-auto">
+      {/* Contenido principal - Sin límites de ancho máximo (w-full 100%) */}
+      <div className="w-full px-4 md:px-8 lg:px-12">
         
-        {/* Pestañas estilo menú infantil redondeado */}
+        {/* Pestañas de navegación */}
         <div className="mt-6 flex flex-wrap gap-3 print:hidden w-full">
           <button
             onClick={() => { setVista('registro'); setImprimirFormal(false); }}
@@ -371,8 +374,8 @@ export default function App() {
               </div>
             </div>
 
-            {/* AQUI ESTÁ EL AJUSTE PARA QUE NO SE VEAN AMONTONADOS: Máximo 3 columnas */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full pb-8">
+            {/* Ajuste de cuadrícula: Hasta 4 o 5 columnas en pantallas muy grandes para usar el espacio total */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 w-full pb-8">
               {alumnosFiltrados.length > 0 ? (
                 alumnosFiltrados.map((alumno) => (
                   <div 
@@ -701,7 +704,7 @@ export default function App() {
       {/* Barra Flotante Inferior */}
       {vista !== 'formal' && (
         <div className="fixed bottom-0 left-0 right-0 p-3.5 bg-white/95 backdrop-blur-xl border-t-2 border-blue-100 shadow-xl z-30 print:hidden w-full">
-          <div className="w-full px-4 md:px-8 max-w-[1200px] mx-auto flex items-center justify-between gap-4">
+          <div className="w-full px-4 md:px-8 lg:px-12 mx-auto flex items-center justify-between gap-4">
             <div className="hidden sm:flex flex-col">
               <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider">Estado de Conexión</span>
               <span className="text-xs font-black text-[#2563eb] flex items-center gap-1.5">
