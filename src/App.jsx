@@ -5,28 +5,28 @@ import {
   Lock, ShieldAlert, CloudDownload, RefreshCw
 } from 'lucide-react';
 
-// Lista oficial y depurada de los 20 alumnos (1 al 20 sin faltar ninguno)
+// Lista base de los 20 alumnos (Solo se usa si la Memoria Maestra está vacía)
 const alumnosIniciales = [
-  { id: 1, nombre: 'Carmona Hilario Dayra Nahomi', asistencia: true, lugar: 'salon', tarea: true, canal: 'Visual', diagnostico: 'Aprende mejor con ejemplos visuales y colores.', incidentes: [] },
-  { id: 2, nombre: 'Burgos Mancilla Franco', asistencia: true, lugar: 'salon', tarea: true, canal: 'Kinestésico', diagnostico: 'Disfruta el aprendizaje práctico y dinámico.', incidentes: [] },
-  { id: 3, nombre: 'Calixto Daza Jose Guadalupe', asistencia: true, lugar: 'salon', tarea: true, canal: 'Auditivo', diagnostico: 'Participa activamente al escuchar explicaciones.', incidentes: [] },
-  { id: 4, nombre: 'Castillo Valle Erick Alberto', asistencia: true, lugar: 'salon', tarea: true, canal: 'Visual', diagnostico: 'Buena retención de textos anotados en el pizarrón.', incidentes: [] },
-  { id: 5, nombre: 'Gonzalez Barrera Andrew Dennis', asistencia: true, lugar: 'salon', tarea: true, canal: 'Auditivo', diagnostico: 'Aprende muy bien a través del diálogo en clase.', incidentes: [] },
-  { id: 6, nombre: 'Hernandez Benitez Naomi', asistencia: true, lugar: 'salon', tarea: true, canal: 'Visual', diagnostico: 'Organiza excelentemente sus apuntes y esquemas.', incidentes: [] },
-  { id: 7, nombre: 'Hernandez Valencia Fernando Martin', asistencia: true, lugar: 'salon', tarea: true, canal: 'Kinestésico', diagnostico: 'Necesita dinamismo y pausas activas en la clase.', incidentes: [] },
-  { id: 8, nombre: 'Luviano Jimenez Said', asistencia: true, lugar: 'salon', tarea: true, canal: 'Auditivo', diagnostico: 'Comprende muy bien las instrucciones orales complejas.', incidentes: [] },
-  { id: 9, nombre: 'Luviano Salgado Iker', asistencia: true, lugar: 'salon', tarea: true, canal: 'Visual', diagnostico: 'Destaca en actividades de lectura silenciosa.', incidentes: [] },
-  { id: 10, nombre: 'Montor Leon Arlet Berenice', asistencia: true, lugar: 'salon', tarea: true, canal: 'Kinestésico', diagnostico: 'Le gusta el trabajo en equipo y estar en movimiento.', incidentes: [] },
-  { id: 11, nombre: 'Peña Molina Dulce Yamilet', asistencia: true, lugar: 'salon', tarea: true, canal: 'Auditivo', diagnostico: 'Muy atenta a las participaciones grupales.', incidentes: [] },
-  { id: 12, nombre: 'Perez Pedroza Dara Betsabe', asistencia: true, lugar: 'salon', tarea: true, canal: 'Visual', diagnostico: 'Muy receptiva a organizadores gráficos.', incidentes: [] },
-  { id: 13, nombre: 'Rabadan Orrosquieta Jesus Enrique', asistencia: true, lugar: 'salon', tarea: true, canal: 'Kinestésico', diagnostico: 'Aprende rápido a través del juego y retos físicos.', incidentes: [] },
-  { id: 14, nombre: 'Saucedo Espinoza Alvaro Santiago', asistencia: true, lugar: 'salon', tarea: true, canal: 'Visual', diagnostico: 'Trabaja de forma muy ordenada en su libreta.', incidentes: [] },
-  { id: 15, nombre: 'Toribio Herrera Eleazar', asistencia: true, lugar: 'salon', tarea: true, canal: 'Kinestésico', diagnostico: 'Excelente coordinación motriz en las actividades.', incidentes: [] },
-  { id: 16, nombre: 'Torres Aguilera Kathia Paloma', asistencia: true, lugar: 'salon', tarea: true, canal: 'Visual', diagnostico: 'Facilidad para aprender mediante la observación directa.', incidentes: [] },
-  { id: 17, nombre: 'Zavala Pineda Vaitiare Monserrat', asistencia: true, lugar: 'salon', tarea: true, canal: 'Visual', diagnostico: 'Comprende fácilmente lecturas de texto.', incidentes: [] },
-  { id: 18, nombre: 'Lopez Venegas Rosalia', asistencia: true, lugar: 'salon', tarea: true, canal: 'Kinestésico', diagnostico: 'Se apoya mucho utilizando material didáctico concreto.', incidentes: [] },
-  { id: 19, nombre: 'Renteria Catalan Giselle', asistencia: true, lugar: 'salon', tarea: true, canal: 'Auditivo', diagnostico: 'Excelente comprensión lectora al leer en voz alta.', incidentes: [] },
-  { id: 20, nombre: 'Orozco Lopez Jose De Jesus', asistencia: true, lugar: 'salon', tarea: true, canal: 'Visual', diagnostico: 'Requiere indicaciones visuales claras en el pizarrón.', incidentes: [] }
+  { id: 1, nombre: 'Carmona Hilario Dayra Nahomi', canal: 'Visual', diagnostico: 'Aprende mejor con ejemplos visuales y colores.' },
+  { id: 2, nombre: 'Burgos Mancilla Franco', canal: 'Kinestésico', diagnostico: 'Disfruta el aprendizaje práctico y dinámico.' },
+  { id: 3, nombre: 'Calixto Daza Jose Guadalupe', canal: 'Auditivo', diagnostico: 'Participa activamente al escuchar explicaciones.' },
+  { id: 4, nombre: 'Castillo Valle Erick Alberto', canal: 'Visual', diagnostico: 'Buena retención de textos anotados en el pizarrón.' },
+  { id: 5, nombre: 'Gonzalez Barrera Andrew Dennis', canal: 'Auditivo', diagnostico: 'Aprende muy bien a través del diálogo en clase.' },
+  { id: 6, nombre: 'Hernandez Benitez Naomi', canal: 'Visual', diagnostico: 'Organiza excelentemente sus apuntes y esquemas.' },
+  { id: 7, nombre: 'Hernandez Valencia Fernando Martin', canal: 'Kinestésico', diagnostico: 'Necesita dinamismo y pausas activas en la clase.' },
+  { id: 8, nombre: 'Luviano Jimenez Said', canal: 'Auditivo', diagnostico: 'Comprende muy bien las instrucciones orales complejas.' },
+  { id: 9, nombre: 'Luviano Salgado Iker', canal: 'Visual', diagnostico: 'Destaca en actividades de lectura silenciosa.' },
+  { id: 10, nombre: 'Montor Leon Arlet Berenice', canal: 'Kinestésico', diagnostico: 'Le gusta el trabajo en equipo y estar en movimiento.' },
+  { id: 11, nombre: 'Peña Molina Dulce Yamilet', canal: 'Auditivo', diagnostico: 'Muy atenta a las participaciones grupales.' },
+  { id: 12, nombre: 'Perez Pedroza Dara Betsabe', canal: 'Visual', diagnostico: 'Muy receptiva a organizadores gráficos.' },
+  { id: 13, nombre: 'Rabadan Orrosquieta Jesus Enrique', canal: 'Kinestésico', diagnostico: 'Aprende rápido a través del juego y retos físicos.' },
+  { id: 14, nombre: 'Saucedo Espinoza Alvaro Santiago', canal: 'Visual', diagnostico: 'Trabaja de forma muy ordenada en su libreta.' },
+  { id: 15, nombre: 'Toribio Herrera Eleazar', canal: 'Kinestésico', diagnostico: 'Excelente coordinación motriz en las actividades.' },
+  { id: 16, nombre: 'Torres Aguilera Kathia Paloma', canal: 'Visual', diagnostico: 'Facilidad para aprender mediante la observación directa.' },
+  { id: 17, nombre: 'Zavala Pineda Vaitiare Monserrat', canal: 'Visual', diagnostico: 'Comprende fácilmente lecturas de texto.' },
+  { id: 18, nombre: 'Lopez Venegas Rosalia', canal: 'Kinestésico', diagnostico: 'Se apoya mucho utilizando material didáctico concreto.' },
+  { id: 19, nombre: 'Renteria Catalan Giselle', canal: 'Auditivo', diagnostico: 'Excelente comprensión lectora al leer en voz alta.' },
+  { id: 20, nombre: 'Orozco Lopez Jose De Jesus', canal: 'Visual', diagnostico: 'Requiere indicaciones visuales claras en el pizarrón.' }
 ];
 
 const opcionesFaltasForm = [
@@ -40,8 +40,6 @@ const opcionesFaltasForm = [
 ];
 
 const CONTRASENA_CORRECTA = 'Profe2026'; 
-
-// URL DE GOOGLE SHEETS INTACTA
 const URL_GOOGLE_SCRIPT = 'https://script.google.com/macros/s/AKfycbyrW9JLKyIcbBAb3DzwXGMQXEvbL77LaWVb5HlILh1TKIOxVgkBfcQWt2BCFE1DzVBV/exec'; 
 
 export default function App() {
@@ -49,7 +47,7 @@ export default function App() {
   const [contrasena, setContrasena] = useState('');
   const [errorLogin, setErrorLogin] = useState('');
 
-  const [alumnos, setAlumnos] = useState(alumnosIniciales);
+  const [alumnos, setAlumnos] = useState([]);
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
   const [busqueda, setBusqueda] = useState('');
   const [filtroCanal, setFiltroCanal] = useState('Todos');
@@ -69,17 +67,45 @@ export default function App() {
   });
   const [imprimirFormal, setImprimirFormal] = useState(false);
 
+  // EFECTO 1: Mantener actualizada la Memoria Maestra de Perfiles
+  useEffect(() => {
+    if (alumnos.length > 0) {
+      const perfiles = alumnos.map(a => ({
+        id: a.id, nombre: a.nombre, canal: a.canal, diagnostico: a.diagnostico
+      }));
+      localStorage.setItem('perfiles_maestros_3a', JSON.stringify(perfiles));
+    }
+  }, [alumnos]);
+
+  // EFECTO 2: Cargar datos al cambiar de fecha
   useEffect(() => {
     const historialGuardado = localStorage.getItem(`historial_3a_${fecha}`);
+    
     if (historialGuardado) {
       setAlumnos(JSON.parse(historialGuardado));
     } else {
-      setAlumnos(alumnosIniciales.map(al => ({
-        ...al, asistencia: true, lugar: 'salon', tarea: true, incidentes: []
+      // Si es un día nuevo, buscar la memoria maestra. Si no existe, usar la lista por defecto.
+      const perfilesGuardados = localStorage.getItem('perfiles_maestros_3a');
+      const perfilesBase = perfilesGuardados ? JSON.parse(perfilesGuardados) : alumnosIniciales;
+      
+      // Construir el día nuevo inyectando asistencias limpias pero manteniendo perfiles
+      setAlumnos(perfilesBase.map(perfil => ({
+        ...perfil, asistencia: true, lugar: 'salon', tarea: true, incidentes: []
       })));
     }
     setMensajeSync('');
   }, [fecha]);
+
+  // EFECTO 3: Intentar auto-descargar de la nube al iniciar sesión por primera vez hoy
+  useEffect(() => {
+    if (estaAutenticado) {
+      const historialGuardado = localStorage.getItem(`historial_3a_${fecha}`);
+      if (!historialGuardado) {
+        handleSincronizarNube(); // Auto-Sincroniza en días nuevos para ver si usaste otra PC
+      }
+    }
+    // eslint-disable-next-line
+  }, [estaAutenticado]);
 
   const manejarIngreso = useCallback((e) => {
     e.preventDefault();
@@ -123,7 +149,7 @@ export default function App() {
         localStorage.setItem(`historial_3a_${fecha}`, JSON.stringify(data.alumnos));
         setMensajeSync('¡Datos sincronizados!');
       } else {
-        setMensajeSync('No hay registros previos hoy');
+        setMensajeSync('No hay registros en la nube hoy');
       }
     } catch (error) {
       console.error("Error al sincronizar:", error);
@@ -178,9 +204,9 @@ export default function App() {
     return { total, presentes: pres, faltas: total - pres, porcentaje: total > 0 ? Math.round((pres / total) * 100) : 0, tareasCumplidas: tar, trabajandoCasa: casa };
   }, [alumnos]);
 
-  const incidentesReporte = useMemo(() => alumnos.flatMap(a => a.incidentes.map(inc => ({ nombre: a.nombre, ...inc }))), [alumnos]);
+  const incidentesReporte = useMemo(() => alumnos.flatMap(a => a.incidentes?.map(inc => ({ nombre: a.nombre, ...inc })) || []), [alumnos]);
 
-  // Estilos globales: Hack extremo para matar el fondo verde de autocompletado y asegurar ancho total
+  // Estilos globales y hack extremo para el autocompletado
   const GlobalStyles = () => (
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap');
@@ -193,7 +219,7 @@ export default function App() {
         background-color: #eef6ff !important; 
         overflow-x: hidden;
       }
-      /* Anular el fondo verde de LastPass/Chrome/Edge */
+      /* Anular el fondo verde de LastPass/Chrome/Edge permanentemente */
       input:-webkit-autofill,
       input:-webkit-autofill:hover, 
       input:-webkit-autofill:focus, 
@@ -250,7 +276,7 @@ export default function App() {
     <div className="min-h-screen text-slate-700 pb-36 w-full bg-[#eef6ff]">
       <GlobalStyles />
       
-      {/* Barra Superior - Ahora abarca el 100% de la pantalla */}
+      {/* Barra Superior */}
       <header className="bg-white/95 backdrop-blur-md shadow-sm sticky top-0 z-30 print:hidden w-full border-b-2 border-blue-100">
         <div className="px-4 md:px-8 lg:px-12 py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
           <div className="flex items-center gap-3">
@@ -277,7 +303,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* Contenido principal - Sin límites de ancho máximo (w-full 100%) */}
+      {/* Contenido principal */}
       <div className="w-full px-4 md:px-8 lg:px-12">
         
         {/* Pestañas de navegación */}
@@ -374,7 +400,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Ajuste de cuadrícula: Hasta 4 o 5 columnas en pantallas muy grandes para usar el espacio total */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 w-full pb-8">
               {alumnosFiltrados.length > 0 ? (
                 alumnosFiltrados.map((alumno) => (
@@ -441,10 +466,10 @@ export default function App() {
                       ) : (
                         <div className="flex items-center justify-between px-1">
                           <button onClick={() => setIdAlumnoIncidente(alumno.id)} className="text-sm text-[#2563eb] hover:underline flex items-center gap-1 font-black"><Plus className="w-4 h-4" /> Nueva Nota</button>
-                          {alumno.incidentes.length > 0 && <span className="flex items-center gap-1.5 text-[11px] bg-amber-100 text-amber-800 px-2.5 py-1 rounded-lg font-black"><AlertCircle className="w-3.5 h-3.5" /> {alumno.incidentes.length}</span>}
+                          {alumno.incidentes?.length > 0 && <span className="flex items-center gap-1.5 text-[11px] bg-amber-100 text-amber-800 px-2.5 py-1 rounded-lg font-black"><AlertCircle className="w-3.5 h-3.5" /> {alumno.incidentes.length}</span>}
                         </div>
                       )}
-                      {alumno.incidentes.length > 0 && idAlumnoIncidente !== alumno.id && (
+                      {alumno.incidentes?.length > 0 && idAlumnoIncidente !== alumno.id && (
                         <div className="mt-3 space-y-1.5">
                           {alumno.incidentes.slice(0, 1).map((inc) => (
                             <div key={inc.id} className="text-xs font-bold bg-amber-50 p-2.5 rounded-xl border border-amber-200 flex items-start gap-2">
@@ -508,7 +533,7 @@ export default function App() {
                 <div className="space-y-3">
                   <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2"><FileText className="w-4 h-4 text-[#2563eb]" /> Historial de Observaciones</h4>
                   <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                    {alumnoSeleccionado.incidentes.length > 0 ? alumnoSeleccionado.incidentes.map((inc) => (
+                    {alumnoSeleccionado.incidentes?.length > 0 ? alumnoSeleccionado.incidentes.map((inc) => (
                       <div key={inc.id} className="p-3.5 bg-white shadow-sm rounded-2xl border-2 border-slate-100 flex justify-between gap-3">
                         <div className="flex-1 space-y-1">
                           <div className="flex items-center gap-2">
